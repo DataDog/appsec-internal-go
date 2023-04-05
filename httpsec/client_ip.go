@@ -29,10 +29,10 @@ func ClientIPTags(remoteIP, clientIP netip.Addr) (tags map[string]string) {
 
 	tags = make(map[string]string, 2)
 	if remoteIPValid {
-		tags["network.client.ip"] = remoteIP.String()
+		tags[RemoteIPTag] = remoteIP.String()
 	}
 	if clientIPValid {
-		tags["http.client_ip"] = clientIP.String()
+		tags[ClientIPTag] = clientIP.String()
 	}
 	return tags
 }
