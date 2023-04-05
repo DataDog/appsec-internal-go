@@ -48,62 +48,83 @@ func genIPTestCases() []ipTestCase {
 		},
 	}
 
+	testHeaders := []string{
+		"x-forwarded-for",
+		"x-real-ip",
+		"true-client-ip",
+		"x-client-ip",
+		"x-forwarded",
+		"forwarded-for",
+		"x-cluster-client-ip",
+		"fastly-client-ip",
+		"cf-connecting-ip",
+		"cf-connecting-ip6",
+	}
+
 	// Simple ipv4 test cases over all headers
-	//for _, header := range defaultIPHeaders {
-	//	tcs = append(tcs,
-	//		ipTestCase{
-	//			name:       "ipv4-global." + header,
-	//			remoteAddr: ipv4Private,
-	//			headers:    map[string]string{header: ipv4Global},
-	//			expectedIP: netip.MustParseAddr(ipv4Global),
-	//		},
-	//		ipTestCase{
-	//			name:       "ipv4-private." + header,
-	//			headers:    map[string]string{header: ipv4Private},
-	//			remoteAddr: ipv6Private,
-	//			expectedIP: netip.MustParseAddr(ipv4Private),
-	//		},
-	//		ipTestCase{
-	//			name:       "ipv4-global-remoteaddr-local-ip-header." + header,
-	//			remoteAddr: ipv4Global,
-	//			headers:    map[string]string{header: ipv4Private},
-	//			expectedIP: netip.MustParseAddr(ipv4Global),
-	//		},
-	//		ipTestCase{
-	//			name:       "ipv4-global-remoteaddr-global-ip-header." + header,
-	//			remoteAddr: ipv6Global,
-	//			headers:    map[string]string{header: ipv4Global},
-	//			expectedIP: netip.MustParseAddr(ipv4Global),
-	//		})
-	//}
+	for _, header := range testHeaders {
+		tcs = append(tcs,
+			ipTestCase{
+				name:            "ipv4-global." + header,
+				remoteAddr:      ipv4Private,
+				headers:         map[string]string{header: ipv4Global},
+				expectedIP:      netip.MustParseAddr(ipv4Global),
+				clientIPHeaders: testHeaders,
+			},
+			ipTestCase{
+				name:            "ipv4-private." + header,
+				headers:         map[string]string{header: ipv4Private},
+				remoteAddr:      ipv6Private,
+				expectedIP:      netip.MustParseAddr(ipv4Private),
+				clientIPHeaders: testHeaders,
+			},
+			ipTestCase{
+				name:            "ipv4-global-remoteaddr-local-ip-header." + header,
+				remoteAddr:      ipv4Global,
+				headers:         map[string]string{header: ipv4Private},
+				expectedIP:      netip.MustParseAddr(ipv4Global),
+				clientIPHeaders: testHeaders,
+			},
+			ipTestCase{
+				name:            "ipv4-global-remoteaddr-global-ip-header." + header,
+				remoteAddr:      ipv6Global,
+				headers:         map[string]string{header: ipv4Global},
+				expectedIP:      netip.MustParseAddr(ipv4Global),
+				clientIPHeaders: testHeaders,
+			})
+	}
 
 	// Simple ipv6 test cases over all headers
-	//for _, header := range defaultIPHeaders {
-	//	tcs = append(tcs, ipTestCase{
-	//		name:       "ipv6-global." + header,
-	//		remoteAddr: ipv4Private,
-	//		headers:    map[string]string{header: ipv6Global},
-	//		expectedIP: netip.MustParseAddr(ipv6Global),
-	//	},
-	//		ipTestCase{
-	//			name:       "ipv6-private." + header,
-	//			headers:    map[string]string{header: ipv6Private},
-	//			remoteAddr: ipv4Private,
-	//			expectedIP: netip.MustParseAddr(ipv6Private),
-	//		},
-	//		ipTestCase{
-	//			name:       "ipv6-global-remoteaddr-local-ip-header." + header,
-	//			remoteAddr: ipv6Global,
-	//			headers:    map[string]string{header: ipv6Private},
-	//			expectedIP: netip.MustParseAddr(ipv6Global),
-	//		},
-	//		ipTestCase{
-	//			name:       "ipv6-global-remoteaddr-global-ip-header." + header,
-	//			remoteAddr: ipv4Global,
-	//			headers:    map[string]string{header: ipv6Global},
-	//			expectedIP: netip.MustParseAddr(ipv6Global),
-	//		})
-	//}
+	for _, header := range testHeaders {
+		tcs = append(tcs, ipTestCase{
+			name:            "ipv6-global." + header,
+			remoteAddr:      ipv4Private,
+			headers:         map[string]string{header: ipv6Global},
+			expectedIP:      netip.MustParseAddr(ipv6Global),
+			clientIPHeaders: testHeaders,
+		},
+			ipTestCase{
+				name:            "ipv6-private." + header,
+				headers:         map[string]string{header: ipv6Private},
+				remoteAddr:      ipv4Private,
+				expectedIP:      netip.MustParseAddr(ipv6Private),
+				clientIPHeaders: testHeaders,
+			},
+			ipTestCase{
+				name:            "ipv6-global-remoteaddr-local-ip-header." + header,
+				remoteAddr:      ipv6Global,
+				headers:         map[string]string{header: ipv6Private},
+				expectedIP:      netip.MustParseAddr(ipv6Global),
+				clientIPHeaders: testHeaders,
+			},
+			ipTestCase{
+				name:            "ipv6-global-remoteaddr-global-ip-header." + header,
+				remoteAddr:      ipv4Global,
+				headers:         map[string]string{header: ipv6Global},
+				expectedIP:      netip.MustParseAddr(ipv6Global),
+				clientIPHeaders: testHeaders,
+			})
+	}
 
 	// private and global in same header
 	tcs = append([]ipTestCase{
