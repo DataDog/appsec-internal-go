@@ -41,12 +41,12 @@ func ClientIPTags(remoteIP, clientIP netip.Addr) (tags map[string]string) {
 // none is present, it returns the first valid IP address present, possibly
 // being a local IP address. The remote address, when valid, is used as fallback
 // when no IP address has been found at all.
-func ClientIP(hdrs map[string][]string, hasCanonicalMIMEHeaderKeys bool, remoteAddr string, monitoredHeaders []string) (remoteIP, clientIP netip.Addr) {
+func ClientIP(hdrs map[string][]string, hasCanonicalHeaders bool, remoteAddr string, monitoredHeaders []string) (remoteIP, clientIP netip.Addr) {
 	// Walk IP-related headers
 	var foundIP netip.Addr
 headersLoop:
 	for _, headerName := range monitoredHeaders {
-		if hasCanonicalMIMEHeaderKeys {
+		if hasCanonicalHeaders {
 			headerName = textproto.CanonicalMIMEHeaderKey(headerName)
 		}
 
