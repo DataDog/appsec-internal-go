@@ -11,7 +11,7 @@
 # Example: ./update.sh 1.2.5
 #
 
-set -e
+set -eux
 
 [ $# -ne 1 ] && echo "Usage: $0 \"version\"" >&2 && exit 1
 
