@@ -13,7 +13,7 @@ jobs:
   native:
     strategy:
       matrix:
-        runs-on: [ macos-13, macos-12, macos-11, ubuntu-22.04, ubuntu-20.04, ubuntu-18.04, windows-latest ]
+        runs-on: [ macos-13, macos-12, macos-11, ubuntu-22.04, ubuntu-20.04, windows-latest ]
         go-version: [ "1.21", "1.20", "1.19" ]
         cgo_enabled: # test it compiles with and without cgo
           - 0
@@ -50,10 +50,11 @@ jobs:
     strategy:
       matrix:
         go-version: [ "1.21", "1.20", "1.19" ]
-        distribution: [ bullseye, buster, alpine ]
-        cgo_enabled: # test it compiles with and without cgo
-          - 0
-          - 1
+        distribution: [ bookworm, bullseye, buster, alpine ]
+        cgo_enabled: [ "0", "1" ] # test it compiles with and without cgo
+        exclude:
+          - go-version: 1.21
+            distribution: buster
       fail-fast: false
     steps:
       - uses: actions/checkout@v3

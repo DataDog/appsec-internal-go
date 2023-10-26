@@ -11,19 +11,21 @@
 # Example: ./update.sh 1.2.5
 #
 
-set -eux
+set -eu
 
 [ $# -ne 1 ] && echo "Usage: $0 \"version\"" >&2 && exit 1
 
 echo "================ Minifying ================"
 
-tmpDir=$(mktemp -d /tmp/rule-update-XXXXXXXXX)
-scriptDir=$PWD/$(dirname $0)
+tmpDir="$(mktemp -d /tmp/rule-update-XXXXXXXXX)"
+scriptPath="$(readlink -f $0)"
+scriptDir="$(dirname $scriptPath)"
+destDir="$(readlink -f "$scriptDir/../../appsec/")"
 
-trap "rm -rf $tmpDir" EXIT
+trap "rm -r $tmpDir" EXIT
 
-DOCKER_BUILDKIT=1 docker build -o type=local,dest=$tmpDir --build-arg version=$1 --no-cache $scriptDir
+DOCKER_BUILDKIT=1 docker build -o type=local,dest="$tmpDir" --build-arg version="$1" --no-cache "$scriptDir"
 echo "================   Done    ================"
-cp -v $tmpDir/rules.go ../../appsec/
-cp -v $tmpDir/rules.json ../../appsec/
-echo "Output written to ../../appsec/rules.go and ../../appsec/rules.json"
+cp -v $tmpDir/rules.go "$destDir"
+cp -v $tmpDir/rules.json "$destDir"
+echo "Output written to $destDir"
