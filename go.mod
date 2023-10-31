@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/stretchr/testify v1.8.2
+	go.uber.org/atomic v1.11.0
 	inet.af/netaddr v0.0.0-20220811202034-502d2d690317
 )
 
