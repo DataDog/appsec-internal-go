@@ -1,20 +1,24 @@
 // Unless explicitly stated otherwise all files in this repository are licensed
 // under the Apache License Version 2.0.
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
-// Copyright 2016-present Datadog, Inc.
-
+// Copyright 2023-present Datadog, Inc.
 package appsec
 
-import _ "embed" // Blank import comment for golint compliance
+import "encoding/json"
 
-// StaticRecommendedRules holds the recommended AppSec security rules (v1.9.0)
-// Source: https://github.com/DataDog/appsec-event-rules/blob/1.9.0/build/recommended.json
-//
-//go:embed rules.json
-var StaticRecommendedRules string
+// DefaultRuleset returns the default recommended security rules for AppSec
+func DefaultRuleset() ([]byte, error) {
+	var rules map[string]any
+	var processors map[string]any
+	if err := json.Unmarshal([]byte(StaticRecommendedRules), &rules); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal([]byte(StaticProcessors), &processors); err != nil {
+		return nil, err
+	}
+	for k, v := range processors {
+		rules[k] = v
+	}
 
-// StaticProcessors holds the default processors and scanners used for API Security
-// Not part of the recommended security rules
-//
-//go:embed processors.json
-var StaticProcessors string
+	return json.Marshal(rules)
+}
