@@ -26,6 +26,6 @@ trap "rm -r $tmpDir" EXIT
 
 DOCKER_BUILDKIT=1 docker build -o type=local,dest="$tmpDir" --build-arg version="$1" --no-cache "$scriptDir"
 echo "================   Done    ================"
-cp -v $tmpDir/rules.go "$destDir"
+cp -v $tmpDir/embed.go "$destDir"
 cp -v $tmpDir/rules.json "$destDir"
 echo "Output written to $destDir"
