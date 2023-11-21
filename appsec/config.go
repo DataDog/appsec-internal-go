@@ -63,13 +63,14 @@ func apiSecurityEnabled() bool {
 }
 
 func readAPISecuritySampleRate() float64 {
-	rate, err := strconv.ParseFloat(os.Getenv(envAPISecSampleRate), 64)
+	value := os.Getenv(envAPISecSampleRate)
+	rate, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		log.Debugf("appsec: could not parse %s. Defaulting to %f", envAPISecSampleRate, defaultAPISecSampleRate)
+		logEnvVarParsingError(envAPISecSampleRate, value, err, defaultAPISecSampleRate)
 		return defaultAPISecSampleRate
 	}
 	if rate < 0. || rate > 1. {
-		log.Debugf("appsec: %s value must be between 0 and 1. Defaulting to %f", envAPISecSampleRate, defaultAPISecSampleRate)
+		logUnexpectedEnvVarValue(envAPISecSampleRate, rate, "value must be between 0 and 1", defaultAPISecSampleRate)
 		return defaultAPISecSampleRate
 	}
 	return rate
@@ -89,7 +90,7 @@ func readObfuscatorConfigRegexp(name, defaultValue string) string {
 		return defaultValue
 	}
 	if _, err := regexp.Compile(val); err != nil {
-		log.Errorf("appsec: could not compile the configured obfuscator regular expression `%s=%s`. Using the default value instead", name, val)
+		logUnexpectedEnvVarValue(name, val, "could not compile the configured obfuscator regular expression", defaultValue)
 		return defaultValue
 	}
 	log.Debug("appsec: starting with the configured obfuscator regular expression %s", name)
