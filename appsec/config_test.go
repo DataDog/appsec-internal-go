@@ -122,3 +122,32 @@ func TestObfuscatorConfig(t *testing.T) {
 		})
 	})
 }
+
+func TestTraceRateLimit(t *testing.T) {
+	t.Run("trace-rate-limit", func(t *testing.T) {
+		t.Run("parsable", func(t *testing.T) {
+			t.Setenv(envTraceRateLimit, "1234567890")
+			require.Equal(t, uint(1234567890), RateLimitFromEnv())
+		})
+
+		t.Run("not-parsable", func(t *testing.T) {
+			t.Setenv(envTraceRateLimit, "not a uint")
+			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
+		})
+
+		t.Run("negative", func(t *testing.T) {
+			t.Setenv(envTraceRateLimit, "-1")
+			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
+		})
+
+		t.Run("zero", func(t *testing.T) {
+			t.Setenv(envTraceRateLimit, "0")
+			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
+		})
+
+		t.Run("empty-string", func(t *testing.T) {
+			t.Setenv(envTraceRateLimit, "")
+			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
+		})
+	})
+}

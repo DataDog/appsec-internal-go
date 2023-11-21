@@ -6,11 +6,10 @@
 package appsec
 
 import (
+	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"os"
 	"regexp"
 	"strconv"
-
-	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
 // Configuration environment variables
@@ -19,6 +18,7 @@ const (
 	envAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
 	envObfuscatorKey    = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
 	envObfuscatorValue  = "DD_APPSEC_OBFUSCATION_PARAMETER_VALUE_REGEXP"
+	envTraceRateLimit   = "DD_APPSEC_TRACE_RATE_LIMIT"
 )
 
 // Configuration constants and default values
@@ -26,6 +26,7 @@ const (
 	defaultAPISecSampleRate     = 10. / 100
 	defaultObfuscatorKeyRegex   = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?)key)|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization`
 	defaultObfuscatorValueRegex = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?|access_?|secret_?)key(?:_?id)?|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)?|auth(?:entication|orization)?)(?:\s*=[^;]|"\s*:\s*"[^"]+")|bearer\s+[a-z0-9\._\-]+|token:[a-z0-9]{13}|gh[opsu]_[0-9a-zA-Z]{36}|ey[I-L][\w=-]+\.ey[I-L][\w=-]+(?:\.[\w.+\/=-]+)?|[\-]{5}BEGIN[a-z\s]+PRIVATE\sKEY[\-]{5}[^\-]+[\-]{5}END[a-z\s]+PRIVATE\sKEY|ssh-rsa\s*[a-z0-9\/\.+]{100,}`
+	defaultTraceRate            = uint(100) // up to 100 appsec traces/s
 )
 
 // APISecConfig holds the configuration for API Security schemas reporting
@@ -87,4 +88,32 @@ func readObfuscatorConfigRegexp(name, defaultValue string) string {
 	}
 	log.Debug("appsec: starting with the configured obfuscator regular expression %s", name)
 	return val
+}
+
+// RateLimitFromEnv reads and parses the trace rate limit set through the env
+// If not set, it defaults to `defaultTraceRate`
+func RateLimitFromEnv() (rate uint) {
+	rate = defaultTraceRate
+	value := os.Getenv(envTraceRateLimit)
+	if value == "" {
+		return rate
+	}
+	parsed, err := strconv.ParseUint(value, 10, 0)
+	if err != nil {
+		logEnvVarParsingError(envTraceRateLimit, value, err, rate)
+		return
+	}
+	if parsed == 0 {
+		logUnexpectedEnvVarValue(envTraceRateLimit, parsed, "expecting a value strictly greater than 0", rate)
+		return
+	}
+	return uint(parsed)
+}
+
+func logEnvVarParsingError(name, value string, err error, defaultValue interface{}) {
+	log.Errorf("appsec: could not parse the env var %s=%s as a duration: %v. Using default value %v.", name, value, err, defaultValue)
+}
+
+func logUnexpectedEnvVarValue(name string, value interface{}, reason string, defaultValue interface{}) {
+	log.Errorf("appsec: unexpected configuration value of %s=%v: %s. Using default value %v.", name, value, reason, defaultValue)
 }
