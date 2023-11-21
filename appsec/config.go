@@ -6,10 +6,14 @@
 package appsec
 
 import (
-	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"os"
 	"regexp"
 	"strconv"
+	"time"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
 // Configuration environment variables
@@ -18,6 +22,7 @@ const (
 	envAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
 	envObfuscatorKey    = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
 	envObfuscatorValue  = "DD_APPSEC_OBFUSCATION_PARAMETER_VALUE_REGEXP"
+	envWafTimeout       = "DD_APPSEC_WAF_TIMEOUT"
 	envTraceRateLimit   = "DD_APPSEC_TRACE_RATE_LIMIT"
 )
 
@@ -26,6 +31,7 @@ const (
 	defaultAPISecSampleRate     = 10. / 100
 	defaultObfuscatorKeyRegex   = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?)key)|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization`
 	defaultObfuscatorValueRegex = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?|access_?|secret_?)key(?:_?id)?|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)?|auth(?:entication|orization)?)(?:\s*=[^;]|"\s*:\s*"[^"]+")|bearer\s+[a-z0-9\._\-]+|token:[a-z0-9]{13}|gh[opsu]_[0-9a-zA-Z]{36}|ey[I-L][\w=-]+\.ey[I-L][\w=-]+(?:\.[\w.+\/=-]+)?|[\-]{5}BEGIN[a-z\s]+PRIVATE\sKEY[\-]{5}[^\-]+[\-]{5}END[a-z\s]+PRIVATE\sKEY|ssh-rsa\s*[a-z0-9\/\.+]{100,}`
+	defaultWAFTimeout           = 4 * time.Millisecond
 	defaultTraceRate            = uint(100) // up to 100 appsec traces/s
 )
 
@@ -88,6 +94,34 @@ func readObfuscatorConfigRegexp(name, defaultValue string) string {
 	}
 	log.Debug("appsec: starting with the configured obfuscator regular expression %s", name)
 	return val
+}
+
+// WAFTimeoutFromEnv reads and parses the WAF timeout value set through the env
+// If not set, it defaults to `defaultWAFTimeout`
+func WAFTimeoutFromEnv() (timeout time.Duration) {
+	timeout = defaultWAFTimeout
+	value := os.Getenv(envWafTimeout)
+	if value == "" {
+		return
+	}
+
+	// Check if the value ends with a letter, which means the user has
+	// specified their own time duration unit(s) such as 1s200ms.
+	// Otherwise, default to microseconds.
+	if lastRune, _ := utf8.DecodeLastRuneInString(value); !unicode.IsLetter(lastRune) {
+		value += "us" // Add the default microsecond time-duration suffix
+	}
+
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		logEnvVarParsingError(envWafTimeout, value, err, timeout)
+		return
+	}
+	if parsed <= 0 {
+		logUnexpectedEnvVarValue(envWafTimeout, parsed, "expecting a strictly positive duration", timeout)
+		return
+	}
+	return parsed
 }
 
 // RateLimitFromEnv reads and parses the trace rate limit set through the env

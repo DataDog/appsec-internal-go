@@ -7,6 +7,7 @@ package appsec
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -124,30 +125,85 @@ func TestObfuscatorConfig(t *testing.T) {
 }
 
 func TestTraceRateLimit(t *testing.T) {
-	t.Run("trace-rate-limit", func(t *testing.T) {
-		t.Run("parsable", func(t *testing.T) {
-			t.Setenv(envTraceRateLimit, "1234567890")
-			require.Equal(t, uint(1234567890), RateLimitFromEnv())
+	for _, tc := range []struct {
+		name     string
+		env      string
+		expected uint
+	}{
+		{
+			name:     "parsable",
+			env:      "1234567890",
+			expected: 1234567890,
+		},
+		{
+			name:     "not-parsable",
+			env:      "not a uint",
+			expected: defaultTraceRate,
+		},
+		{
+			name:     "negative",
+			env:      "-1",
+			expected: defaultTraceRate,
+		},
+		{
+			name:     "zero",
+			env:      "0",
+			expected: defaultTraceRate,
+		},
+		{
+			name:     "empty-string",
+			env:      "",
+			expected: defaultTraceRate,
+		},
+	} {
+		t.Run("trace-rate-limit/"+tc.name, func(t *testing.T) {
+			t.Setenv(envTraceRateLimit, tc.env)
+			require.Equal(t, tc.expected, RateLimitFromEnv())
+		})
+	}
+}
+
+func TestWAFTimeout(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		env      string
+		expected time.Duration
+	}{
+		{
+			name:     "parsable",
+			env:      "5s",
+			expected: 5 * time.Second,
+		},
+		{
+			name:     "parsable-default-microsecond",
+			env:      "1",
+			expected: 1 * time.Microsecond,
+		},
+		{
+			name:     "not-parsable",
+			env:      "not a duration string",
+			expected: defaultWAFTimeout,
+		},
+		{
+			name:     "negative",
+			env:      "-1s",
+			expected: defaultWAFTimeout,
+		},
+		{
+			name:     "zero",
+			env:      "0",
+			expected: defaultWAFTimeout,
+		},
+		{
+			name:     "empty-string",
+			env:      "",
+			expected: defaultWAFTimeout,
+		},
+	} {
+		t.Run("waf-timeout/"+tc.name, func(t *testing.T) {
+			t.Setenv(envWafTimeout, tc.env)
+			require.Equal(t, tc.expected, WAFTimeoutFromEnv())
 		})
 
-		t.Run("not-parsable", func(t *testing.T) {
-			t.Setenv(envTraceRateLimit, "not a uint")
-			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
-		})
-
-		t.Run("negative", func(t *testing.T) {
-			t.Setenv(envTraceRateLimit, "-1")
-			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
-		})
-
-		t.Run("zero", func(t *testing.T) {
-			t.Setenv(envTraceRateLimit, "0")
-			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
-		})
-
-		t.Run("empty-string", func(t *testing.T) {
-			t.Setenv(envTraceRateLimit, "")
-			require.Equal(t, defaultTraceRate, RateLimitFromEnv())
-		})
-	})
+	}
 }
