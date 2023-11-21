@@ -24,6 +24,7 @@ const (
 	envObfuscatorValue  = "DD_APPSEC_OBFUSCATION_PARAMETER_VALUE_REGEXP"
 	envWafTimeout       = "DD_APPSEC_WAF_TIMEOUT"
 	envTraceRateLimit   = "DD_APPSEC_TRACE_RATE_LIMIT"
+	envRules            = "DD_APPSEC_RULES"
 )
 
 // Configuration constants and default values
@@ -143,6 +144,25 @@ func RateLimitFromEnv() (rate uint) {
 		return
 	}
 	return uint(parsed)
+}
+
+// RulesFromEnv returns the security rules provided through the environment
+// If the env var is not set, the default recommended rules are returned instead
+func RulesFromEnv() ([]byte, error) {
+	filepath := os.Getenv(envRules)
+	if filepath == "" {
+		log.Debug("appsec: using the default built-in recommended security rules")
+		return []byte(StaticRecommendedRules), nil
+	}
+	buf, err := os.ReadFile(filepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Errorf("appsec: could not find the rules file in path %s: %v.", filepath, err)
+		}
+		return nil, err
+	}
+	log.Debug("appsec: using the security rules from file %s", filepath)
+	return buf, nil
 }
 
 func logEnvVarParsingError(name, value string, err error, defaultValue interface{}) {

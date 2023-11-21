@@ -6,6 +6,7 @@
 package appsec
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -206,4 +207,37 @@ func TestWAFTimeout(t *testing.T) {
 		})
 
 	}
+}
+
+func TestRules(t *testing.T) {
+	t.Run("rules", func(t *testing.T) {
+		t.Run("empty-string", func(t *testing.T) {
+			t.Setenv(envRules, "")
+			rules, err := RulesFromEnv()
+			require.NoError(t, err)
+			require.Equal(t, StaticRecommendedRules, string(rules))
+		})
+
+		t.Run("file-not-found", func(t *testing.T) {
+			t.Setenv(envRules, "i do not exist")
+			rules, err := RulesFromEnv()
+			require.Error(t, err)
+			require.Nil(t, rules)
+		})
+
+		t.Run("local-file", func(t *testing.T) {
+			file, err := os.CreateTemp("", "example-*")
+			require.NoError(t, err)
+			defer func() {
+				file.Close()
+				os.Remove(file.Name())
+			}()
+			_, err = file.WriteString(StaticRecommendedRules)
+			require.NoError(t, err)
+			t.Setenv(envRules, file.Name())
+			rules, err := RulesFromEnv()
+			require.NoError(t, err)
+			require.Equal(t, StaticRecommendedRules, string(rules))
+		})
+	})
 }
