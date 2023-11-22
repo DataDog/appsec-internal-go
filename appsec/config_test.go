@@ -57,7 +57,21 @@ func TestAPISecConfig(t *testing.T) {
 			enabledVar:    "true",
 			sampleRateVar: "1.0",
 			enabled:       true,
-			sampleRate:    1.0,
+			sampleRate:    1.,
+		},
+		{
+			name:          "sampleRate 50.0",
+			enabledVar:    "true",
+			sampleRateVar: "50.0",
+			enabled:       true,
+			sampleRate:    1.,
+		},
+		{
+			name:          "sampleRate -50.0",
+			enabledVar:    "true",
+			sampleRateVar: "-50.0",
+			enabled:       true,
+			sampleRate:    0.,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

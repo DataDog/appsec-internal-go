@@ -70,9 +70,11 @@ func readAPISecuritySampleRate() float64 {
 		logEnvVarParsingError(envAPISecSampleRate, value, err, defaultAPISecSampleRate)
 		return defaultAPISecSampleRate
 	}
-	if rate < 0. || rate > 1. {
-		logUnexpectedEnvVarValue(envAPISecSampleRate, rate, "value must be between 0 and 1", defaultAPISecSampleRate)
-		return defaultAPISecSampleRate
+	// Clamp the value so that 0.0 <= rate <= 1.0
+	if rate < 0. {
+		rate = 0.
+	} else if rate > 1. {
+		rate = 1.
 	}
 	return rate
 }
