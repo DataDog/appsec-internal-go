@@ -29,11 +29,11 @@ const (
 
 // Configuration constants and default values
 const (
-	defaultAPISecSampleRate     = 10. / 100
-	defaultObfuscatorKeyRegex   = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?)key)|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization`
-	defaultObfuscatorValueRegex = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?|access_?|secret_?)key(?:_?id)?|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)?|auth(?:entication|orization)?)(?:\s*=[^;]|"\s*:\s*"[^"]+")|bearer\s+[a-z0-9\._\-]+|token:[a-z0-9]{13}|gh[opsu]_[0-9a-zA-Z]{36}|ey[I-L][\w=-]+\.ey[I-L][\w=-]+(?:\.[\w.+\/=-]+)?|[\-]{5}BEGIN[a-z\s]+PRIVATE\sKEY[\-]{5}[^\-]+[\-]{5}END[a-z\s]+PRIVATE\sKEY|ssh-rsa\s*[a-z0-9\/\.+]{100,}`
-	defaultWAFTimeout           = 4 * time.Millisecond
-	defaultTraceRate            = uint(100) // up to 100 appsec traces/s
+	defaultAPISecSampleRate          = .1
+	defaultObfuscatorKeyRegex        = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?)key)|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization`
+	defaultObfuscatorValueRegex      = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?|access_?|secret_?)key(?:_?id)?|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)?|auth(?:entication|orization)?)(?:\s*=[^;]|"\s*:\s*"[^"]+")|bearer\s+[a-z0-9\._\-]+|token:[a-z0-9]{13}|gh[opsu]_[0-9a-zA-Z]{36}|ey[I-L][\w=-]+\.ey[I-L][\w=-]+(?:\.[\w.+\/=-]+)?|[\-]{5}BEGIN[a-z\s]+PRIVATE\sKEY[\-]{5}[^\-]+[\-]{5}END[a-z\s]+PRIVATE\sKEY|ssh-rsa\s*[a-z0-9\/\.+]{100,}`
+	defaultWAFTimeout                = 4 * time.Millisecond
+	defaultTraceRate            uint = 100 // up to 100 appsec traces/s
 )
 
 // APISecConfig holds the configuration for API Security schemas reporting
@@ -165,10 +165,10 @@ func RulesFromEnv() ([]byte, error) {
 	return buf, nil
 }
 
-func logEnvVarParsingError(name, value string, err error, defaultValue interface{}) {
+func logEnvVarParsingError(name, value string, err error, defaultValue any) {
 	log.Errorf("appsec: could not parse the env var %s=%s as a duration: %v. Using default value %v.", name, value, err, defaultValue)
 }
 
-func logUnexpectedEnvVarValue(name string, value interface{}, reason string, defaultValue interface{}) {
+func logUnexpectedEnvVarValue(name string, value any, reason string, defaultValue any) {
 	log.Errorf("appsec: unexpected configuration value of %s=%v: %s. Using default value %v.", name, value, reason, defaultValue)
 }
