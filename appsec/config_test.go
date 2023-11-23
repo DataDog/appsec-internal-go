@@ -216,10 +216,12 @@ func TestWAFTimeout(t *testing.T) {
 
 func TestRules(t *testing.T) {
 	t.Run("empty-string", func(t *testing.T) {
+		defaultRules, err := DefaultRuleset()
+		require.NoError(t, err)
 		t.Setenv(envRules, "")
 		rules, err := RulesFromEnv()
 		require.NoError(t, err)
-		require.Equal(t, StaticRecommendedRules, string(rules))
+		require.Equal(t, defaultRules, rules)
 	})
 
 	t.Run("file-not-found", func(t *testing.T) {

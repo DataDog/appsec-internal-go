@@ -154,7 +154,7 @@ func RulesFromEnv() ([]byte, error) {
 	filepath := os.Getenv(envRules)
 	if filepath == "" {
 		log.Debug("appsec: using the default built-in recommended security rules")
-		return []byte(StaticRecommendedRules), nil
+		return DefaultRuleset()
 	}
 	buf, err := os.ReadFile(filepath)
 	if err != nil {
