@@ -34,26 +34,26 @@ type Backend struct {
 }
 
 // SetBackend replaces the active log backend with the provided one. Any nil
-// function in the new backend will be replaced by the default log backend
-// implementation.
+// function in the new backend will silently ignore any message logged at that
+// level.
 func SetBackend(newBackend Backend) {
 	if newBackend.Trace == nil {
-		newBackend.Trace = defaultWithLevel(logLevelTrace)
+		newBackend.Trace = noopLogger
 	}
 	if newBackend.Debug == nil {
-		newBackend.Debug = defaultWithLevel(logLevelDebug)
+		newBackend.Debug = noopLogger
 	}
 	if newBackend.Info == nil {
-		newBackend.Info = defaultWithLevel(logLevelInfo)
+		newBackend.Info = noopLogger
 	}
 	if newBackend.Warn == nil {
-		newBackend.Warn = defaultWithLevel(logLevelWarn)
+		newBackend.Warn = noopLogger
 	}
 	if newBackend.Errorf == nil {
-		newBackend.Errorf = defaultErrorfWithLevel(logLevelError)
+		newBackend.Errorf = fmt.Errorf
 	}
 	if newBackend.Criticalf == nil {
-		newBackend.Criticalf = defaultErrorfWithLevel(logLevelCritical)
+		newBackend.Criticalf = fmt.Errorf
 	}
 
 	backend = newBackend
@@ -64,7 +64,7 @@ func SetBackend(newBackend Backend) {
 // not enable logging at that level.
 func defaultWithLevel(level logLevel) func(string, ...any) {
 	if defaultBackendLogLevel < level {
-		return func(string, ...any) { /* no-op */ }
+		return noopLogger
 	}
 	return func(format string, args ...any) {
 		log.Printf(fmt.Sprintf("[%s] %s\n", level, format), args...)
@@ -75,9 +75,7 @@ func defaultWithLevel(level logLevel) func(string, ...any) {
 // provided error logLevel.
 func defaultErrorfWithLevel(level logLevel) func(string, ...any) error {
 	if defaultBackendLogLevel < level {
-		return func(format string, args ...any) error {
-			return fmt.Errorf(format, args...)
-		}
+		return fmt.Errorf
 	}
 	return func(format string, args ...any) error {
 		err := fmt.Errorf(format, args...)
@@ -85,6 +83,9 @@ func defaultErrorfWithLevel(level logLevel) func(string, ...any) error {
 		return err
 	}
 }
+
+// noopLogger does nothing.
+func noopLogger(string, ...any) { /* noop */ }
 
 type logLevel uint8
 
