@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/DataDog/datadog-agent/pkg/util/log"
+	"github.com/DataDog/appsec-internal-go/log"
 )
 
 // Configuration environment variables
@@ -159,7 +159,7 @@ func RulesFromEnv() ([]byte, error) {
 	buf, err := os.ReadFile(filepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Errorf("appsec: could not find the rules file in path %s: %v.", filepath, err)
+			err = log.Errorf("appsec: could not find the rules file in path %s: %w.", filepath, err)
 		}
 		return nil, err
 	}
@@ -168,9 +168,9 @@ func RulesFromEnv() ([]byte, error) {
 }
 
 func logEnvVarParsingError(name, value string, err error, defaultValue any) {
-	log.Errorf("appsec: could not parse the env var %s=%s as a duration: %v. Using default value %v.", name, value, err, defaultValue)
+	log.Debug("appsec: could not parse the env var %s=%s as a duration: %v. Using default value %v.", name, value, err, defaultValue)
 }
 
 func logUnexpectedEnvVarValue(name string, value any, reason string, defaultValue any) {
-	log.Errorf("appsec: unexpected configuration value of %s=%v: %s. Using default value %v.", name, value, reason, defaultValue)
+	log.Debug("appsec: unexpected configuration value of %s=%v: %s. Using default value %v.", name, value, reason, defaultValue)
 }
