@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/DataDog/datadog-agent/pkg/util/log"
+	"github.com/DataDog/appsec-internal-go/log"
 )
 
 // Configuration environment variables
