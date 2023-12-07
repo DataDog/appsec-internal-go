@@ -6,6 +6,7 @@
 package log_test
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -50,20 +51,22 @@ func TestBackend(t *testing.T) {
 			logInfo[level].message = fmt.Sprintf(format, args...)
 		}
 	}
+	mockErrLogger := func(level logLevelName) func(string, ...any) error {
+		return func(format string, args ...any) error {
+			err := fmt.Errorf(format, args...)
+			logInfo[level].called = true
+			logInfo[level].message = err.Error()
+			return err
+		}
+	}
 
 	log.SetBackend(log.Backend{
-		Trace: mockLogger(TRACE),
-		Debug: mockLogger(DEBUG),
-		Info:  mockLogger(INFO),
-		Warn:  mockLogger(WARN),
-		Errorf: func(format string, args ...any) error {
-			mockLogger(ERROR)(format, args...)
-			return fmt.Errorf(format, args...)
-		},
-		Criticalf: func(format string, args ...any) error {
-			mockLogger(CRITICAL)(format, args...)
-			return fmt.Errorf(format, args...)
-		},
+		Trace:     mockLogger(TRACE),
+		Debug:     mockLogger(DEBUG),
+		Info:      mockLogger(INFO),
+		Warn:      mockLogger(WARN),
+		Errorf:    mockErrLogger(ERROR),
+		Criticalf: mockErrLogger(CRITICAL),
 	})
 
 	for name, logger := range map[logLevelName]func(string, ...any){
@@ -102,14 +105,16 @@ func TestBackend(t *testing.T) {
 			defer reset()
 
 			// Given
+			cause := errors.New("cause")
 			randomInt := rand.Int()
 
 			// When
-			err := logger("%s %d", name, randomInt)
+			err := logger("%s %d: %w", name, randomInt, cause)
 
 			// Then
-			expectedMessage := fmt.Sprintf("%s %d", name, randomInt)
+			expectedMessage := fmt.Sprintf("%s %d: %v", name, randomInt, cause)
 			require.Equal(t, expectedMessage, err.Error())
+			require.Equal(t, cause, errors.Unwrap(err))
 			for level, status := range logInfo {
 				if level == name {
 					require.True(t, status.called)
