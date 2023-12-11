@@ -97,4 +97,14 @@ jobs:
         with:
           platforms: arm64
       - run: docker run --platform=linux/arm64 -v $PWD:$PWD -w $PWD -eCGO_ENABLED=${{ matrix.cgo_enabled }} -eDD_APPSEC_WAF_TIMEOUT=$DD_APPSEC_WAF_TIMEOUT golang go test -v ./...
-      
+
+  everything:
+    name: All Tests
+    needs:
+      - native
+      - golang-linux-container
+      - linux-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Completed
+        run: echo "All tests completed!"
