@@ -1,6 +1,8 @@
 name: Update AppSec Rules
 on:
   workflow_dispatch: # manually
+  schedule:
+    - cron: "0 6 * * 1" # every Monday at 06:00 UTC
 
 jobs:
   update:
