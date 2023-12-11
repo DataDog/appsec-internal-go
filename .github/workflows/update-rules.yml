@@ -40,7 +40,10 @@ jobs:
           name: repo.patch
           path: ${{ runner.temp }}
       - name: Apply Patch
-        run: git apply ${{ runner.temp }}/repo.patch
+        id: apply
+        run: |-
+          git apply ${{ runner.temp }}/repo.patch
+          echo "version=$(jq -r '.metadata.rules_version' < ./appsec/rules.json)" >> $GITHUB_OUTPUT
       - name: Configure git identity
         run: |-
           git config user.name "github-actions[bot] on behalf of ${{ github.actor }}"
@@ -52,6 +55,9 @@ jobs:
           git push --force-with-lease origin HEAD:automation/update-appsec-rules
       - name: Create Pull Request
         run: |-
-          gh pr create --fill --base "main" --head "automation/update-appsec-rules" --reviewer "@DataDog/asm-go"
+          gh pr create --title "Update embedded AppSec Rules to ${{ steps.apply.outputs.version }}" \
+            --body "Automatically created by [GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})." \
+            --base "main" --head "automation/update-appsec-rules" \
+            --reviewer "@DataDog/asm-go"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
