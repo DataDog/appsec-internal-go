@@ -23,34 +23,34 @@ func TestAPISecConfig(t *testing.T) {
 	}{
 		{
 			name:       "disabled",
-			sampleRate: defaultAPISecSampleRate,
+			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "disabled",
 			enabledVar: "false",
-			sampleRate: defaultAPISecSampleRate,
+			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "disabled",
 			enabledVar: "0",
-			sampleRate: defaultAPISecSampleRate,
+			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "disabled",
 			enabledVar: "weirdvalue",
-			sampleRate: defaultAPISecSampleRate,
+			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "enabled",
 			enabledVar: "true",
 			enabled:    true,
-			sampleRate: defaultAPISecSampleRate,
+			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "enabled",
 			enabledVar: "1",
 			enabled:    true,
-			sampleRate: defaultAPISecSampleRate,
+			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:          "sampleRate 1.0",
@@ -75,8 +75,8 @@ func TestAPISecConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(envAPISecEnabled, tc.enabledVar)
-			t.Setenv(envAPISecSampleRate, tc.sampleRateVar)
+			t.Setenv(EnvAPISecEnabled, tc.enabledVar)
+			t.Setenv(EnvAPISecSampleRate, tc.sampleRateVar)
 			cfg := NewAPISecConfig()
 			require.Equal(t, tc.enabled, cfg.Enabled)
 			require.Equal(t, tc.sampleRate, cfg.SampleRate)
@@ -86,25 +86,25 @@ func TestAPISecConfig(t *testing.T) {
 
 func TestObfuscatorConfig(t *testing.T) {
 	defaultConfig := ObfuscatorConfig{
-		KeyRegex:   defaultObfuscatorKeyRegex,
-		ValueRegex: defaultObfuscatorValueRegex,
+		KeyRegex:   DefaultObfuscatorKeyRegex,
+		ValueRegex: DefaultObfuscatorValueRegex,
 	}
 	t.Run("key/env-var-normal", func(t *testing.T) {
 		expCfg := defaultConfig
 		expCfg.KeyRegex = "test"
-		t.Setenv(envObfuscatorKey, "test")
+		t.Setenv(EnvObfuscatorKey, "test")
 		cfg := NewObfuscatorConfig()
 		require.Equal(t, expCfg, cfg)
 	})
 	t.Run("key/env-var-empty", func(t *testing.T) {
 		expCfg := defaultConfig
 		expCfg.KeyRegex = ""
-		t.Setenv(envObfuscatorKey, "")
+		t.Setenv(EnvObfuscatorKey, "")
 		cfg := NewObfuscatorConfig()
 		require.Equal(t, expCfg, cfg)
 	})
 	t.Run("key/compile-error", func(t *testing.T) {
-		t.Setenv(envObfuscatorKey, "+")
+		t.Setenv(EnvObfuscatorKey, "+")
 		cfg := NewObfuscatorConfig()
 		require.Equal(t, defaultConfig, cfg)
 	})
@@ -112,19 +112,19 @@ func TestObfuscatorConfig(t *testing.T) {
 	t.Run("value/env-var-normal", func(t *testing.T) {
 		expCfg := defaultConfig
 		expCfg.ValueRegex = "test"
-		t.Setenv(envObfuscatorValue, "test")
+		t.Setenv(EnvObfuscatorValue, "test")
 		cfg := NewObfuscatorConfig()
 		require.Equal(t, expCfg, cfg)
 	})
 	t.Run("value/env-var-empty", func(t *testing.T) {
 		expCfg := defaultConfig
 		expCfg.ValueRegex = ""
-		t.Setenv(envObfuscatorValue, "")
+		t.Setenv(EnvObfuscatorValue, "")
 		cfg := NewObfuscatorConfig()
 		require.Equal(t, expCfg, cfg)
 	})
 	t.Run("value/compile-error", func(t *testing.T) {
-		t.Setenv(envObfuscatorValue, "+")
+		t.Setenv(EnvObfuscatorValue, "+")
 		cfg := NewObfuscatorConfig()
 		require.Equal(t, defaultConfig, cfg)
 	})
@@ -144,26 +144,26 @@ func TestTraceRateLimit(t *testing.T) {
 		{
 			name:     "not-parsable",
 			env:      "not a uint",
-			expected: defaultTraceRate,
+			expected: DefaultTraceRate,
 		},
 		{
 			name:     "negative",
 			env:      "-1",
-			expected: defaultTraceRate,
+			expected: DefaultTraceRate,
 		},
 		{
 			name:     "zero",
 			env:      "0",
-			expected: defaultTraceRate,
+			expected: DefaultTraceRate,
 		},
 		{
 			name:     "empty-string",
 			env:      "",
-			expected: defaultTraceRate,
+			expected: DefaultTraceRate,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(envTraceRateLimit, tc.env)
+			t.Setenv(EnvTraceRateLimit, tc.env)
 			require.Equal(t, tc.expected, RateLimitFromEnv())
 		})
 	}
@@ -188,26 +188,26 @@ func TestWAFTimeout(t *testing.T) {
 		{
 			name:     "not-parsable",
 			env:      "not a duration string",
-			expected: defaultWAFTimeout,
+			expected: DefaultWAFTimeout,
 		},
 		{
 			name:     "negative",
 			env:      "-1s",
-			expected: defaultWAFTimeout,
+			expected: DefaultWAFTimeout,
 		},
 		{
 			name:     "zero",
 			env:      "0",
-			expected: defaultWAFTimeout,
+			expected: DefaultWAFTimeout,
 		},
 		{
 			name:     "empty-string",
 			env:      "",
-			expected: defaultWAFTimeout,
+			expected: DefaultWAFTimeout,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(envWafTimeout, tc.env)
+			t.Setenv(EnvWAFTimeout, tc.env)
 			require.Equal(t, tc.expected, WAFTimeoutFromEnv())
 		})
 
@@ -218,14 +218,14 @@ func TestRules(t *testing.T) {
 	t.Run("empty-string", func(t *testing.T) {
 		defaultRules, err := DefaultRuleset()
 		require.NoError(t, err)
-		t.Setenv(envRules, "")
+		t.Setenv(EnvRules, "")
 		rules, err := RulesFromEnv()
 		require.NoError(t, err)
 		require.Equal(t, defaultRules, rules)
 	})
 
 	t.Run("file-not-found", func(t *testing.T) {
-		t.Setenv(envRules, "i do not exist")
+		t.Setenv(EnvRules, "i do not exist")
 		rules, err := RulesFromEnv()
 		require.Error(t, err)
 		require.Nil(t, rules)
@@ -240,7 +240,7 @@ func TestRules(t *testing.T) {
 		}()
 		_, err = file.WriteString(StaticRecommendedRules)
 		require.NoError(t, err)
-		t.Setenv(envRules, file.Name())
+		t.Setenv(EnvRules, file.Name())
 		rules, err := RulesFromEnv()
 		require.NoError(t, err)
 		require.Equal(t, StaticRecommendedRules, string(rules))
