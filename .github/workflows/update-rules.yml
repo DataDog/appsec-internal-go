@@ -50,6 +50,6 @@ jobs:
           git push --force-with-lease origin HEAD:automation/update-appsec-rules
       - name: Create Pull Request
         run: |-
-          gh pr create --fill --base "main" --head "automation/update-appsec-rules"
+          gh pr create --fill --base "main" --head "automation/update-appsec-rules" --reviewer "@DataDog/asm-go"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
