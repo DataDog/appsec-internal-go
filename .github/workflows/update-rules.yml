@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
       - name: Upgrade AppSec Rules
-        run: ./_tools/rules-updater/update.sh
+        run: ./_tools/rules-updater/update.sh latest
       - name: Detect Udpated Coded
         id: detect
         run: |-
