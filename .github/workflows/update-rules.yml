@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-go@v3
       - name: Upgrade AppSec Rules
         run: ./_tools/rules-updater/update.sh latest
-      - name: Detect Udpated Coded
+      - name: Detect Udpated Code
         id: detect
         run: |-
           git add .
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Download Patch
-        uses: actions/upload-artifact@v3
+        uses: actions/download-artifact@v3
         with:
           name: repo.patch
           path: ${{ runner.temp }}
