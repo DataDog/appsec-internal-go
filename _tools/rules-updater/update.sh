@@ -10,6 +10,8 @@
 # Usage: ./update.sh <tag>
 # Example: ./update.sh 1.2.5
 #
+# When the tag specified is "latest", the latest version of the rules file is
+# determined using the GitHub API.
 
 set -eu
 
@@ -26,6 +28,5 @@ trap "rm -r $tmpDir" EXIT
 
 DOCKER_BUILDKIT=1 docker build -o type=local,dest="$tmpDir" --build-arg version="$1" --no-cache "$scriptDir"
 echo "================   Done    ================"
-cp -v $tmpDir/embed.go "$destDir"
-cp -v $tmpDir/rules.json "$destDir"
+cp -v $tmpDir/embed.go $tmpDir/rules.json "$destDir"
 echo "Output written to $destDir"

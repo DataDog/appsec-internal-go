@@ -1,0 +1,57 @@
+name: Update AppSec Rules
+on:
+  workflow_dispatch: # manually
+  schedule:
+    - cron: "0 6 * * 1" # every Monday at 06:00 UTC
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    outputs:
+      mutation_happened: ${{ steps.detect.outputs.mutation_happened }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+      - name: Upgrade AppSec Rules
+        run: ./_tools/rules-updater/update.sh latest
+      - name: Detect Udpated Coded
+        id: detect
+        run: |-
+          git add .
+          git diff --staged --patch --exit-code > ${{ runner.temp }}/repo.patch || echo "mutation_happened=true" >> $GITHUB_OUTPUT
+      - name: Upload Patch
+        if: steps.detect.outputs.mutation_happened
+        uses: actions/upload-artifact@v3
+        with:
+          name: repo.patch
+          path: ${{ runner.temp }}/repo.patch
+
+  create-pr:
+    needs: update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: needs.update.outputs.mutation_happened
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download Patch
+        uses: actions/upload-artifact@v3
+        with:
+          name: repo.patch
+          path: ${{ runner.temp }}
+      - name: Apply Patch
+        run: git apply ${{ runner.temp }}/repo.patch
+      - name: Configure git identity
+        run: |-
+          git config user.name "github-actions[bot] on behalf of ${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+      - name: Push Changes
+        run: |-
+          git add .
+          git commit -m "Update embedded AppSec Rules"
+          git push --force-with-lease origin HEAD:automation/update-appsec-rules
+      - name: Create Pull Request
+        run: |-
+          gh pr create --fill --base "main" --head "automation/update-appsec-rules" --reviewer "@DataDog/asm-go"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

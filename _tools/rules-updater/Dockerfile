@@ -1,10 +1,19 @@
 FROM golang:1.21 as go-format
-ARG version
-ENV VERSION=$version
-ADD https://raw.githubusercontent.com/DataDog/appsec-event-rules/$version/build/recommended.json /home/rules.json
+
+RUN apt update && apt install -y jq curl
 COPY writer/ /home/
 WORKDIR /home/
-RUN go run writer.go ${VERSION} > embed.go
+
+ARG version
+
+RUN if [ "${version}" = "latest" ]; then \
+  curl -s 'https://api.github.com/repos/DataDog/appsec-event-rules/releases/latest' | jq -r '.tag_name' > .version; \
+  else \
+  echo "${version}" > .version; \
+  fi
+
+RUN curl -fSsL "https://raw.githubusercontent.com/DataDog/appsec-event-rules/$(cat .version)/build/recommended.json" -o /home/rules.json
+RUN go run writer.go $(cat .version) > embed.go
 
 FROM scratch
 COPY --from=go-format /home/embed.go embed.go
