@@ -218,14 +218,14 @@ func TestRules(t *testing.T) {
 	t.Run("empty-string", func(t *testing.T) {
 		defaultRules, err := DefaultRuleset()
 		require.NoError(t, err)
-		t.Setenv(envRules, "")
+		t.Setenv(EnvRules, "")
 		rules, err := RulesFromEnv()
 		require.NoError(t, err)
 		require.Equal(t, defaultRules, rules)
 	})
 
 	t.Run("file-not-found", func(t *testing.T) {
-		t.Setenv(envRules, "i do not exist")
+		t.Setenv(EnvRules, "i do not exist")
 		rules, err := RulesFromEnv()
 		require.Error(t, err)
 		require.Nil(t, rules)
@@ -240,7 +240,7 @@ func TestRules(t *testing.T) {
 		}()
 		_, err = file.WriteString(StaticRecommendedRules)
 		require.NoError(t, err)
-		t.Setenv(envRules, file.Name())
+		t.Setenv(EnvRules, file.Name())
 		rules, err := RulesFromEnv()
 		require.NoError(t, err)
 		require.Equal(t, StaticRecommendedRules, string(rules))
