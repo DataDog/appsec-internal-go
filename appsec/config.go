@@ -18,22 +18,34 @@ import (
 
 // Configuration environment variables
 const (
-	envAPISecEnabled    = "DD_EXPERIMENTAL_API_SECURITY_ENABLED"
-	envAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
-	envObfuscatorKey    = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
-	envObfuscatorValue  = "DD_APPSEC_OBFUSCATION_PARAMETER_VALUE_REGEXP"
-	envWafTimeout       = "DD_APPSEC_WAF_TIMEOUT"
-	envTraceRateLimit   = "DD_APPSEC_TRACE_RATE_LIMIT"
-	envRules            = "DD_APPSEC_RULES"
+	// EnvAPISecEnabled is the env var used to enable API Security
+	EnvAPISecEnabled = "DD_EXPERIMENTAL_API_SECURITY_ENABLED"
+	// EnvAPISecSampleRate is the env var used to set the sampling rate of API Security schema extraction
+	EnvAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
+	// EnvObfuscatorKey is the env var used to provide the WAF key obfuscation regexp
+	EnvObfuscatorKey = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
+	// EnvObfuscatorValue is the env var used to provide the WAF value obfuscation regexp
+	EnvObfuscatorValue = "DD_APPSEC_OBFUSCATION_PARAMETER_VALUE_REGEXP"
+	// EnvWAFTimeout is the env var used to specify the timeout value for a WAF run
+	EnvWAFTimeout = "DD_APPSEC_WAF_TIMEOUT"
+	// EnvTraceRateLimit is the env var used to set the ASM trace limiting rate
+	EnvTraceRateLimit = "DD_APPSEC_TRACE_RATE_LIMIT"
+	// EnvRules is the env var used to provide a path to a local security rule file
+	EnvRules = "DD_APPSEC_RULES"
 )
 
 // Configuration constants and default values
 const (
-	defaultAPISecSampleRate          = .1
-	defaultObfuscatorKeyRegex        = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?)key)|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization`
-	defaultObfuscatorValueRegex      = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?|access_?|secret_?)key(?:_?id)?|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)?|auth(?:entication|orization)?)(?:\s*=[^;]|"\s*:\s*"[^"]+")|bearer\s+[a-z0-9\._\-]+|token:[a-z0-9]{13}|gh[opsu]_[0-9a-zA-Z]{36}|ey[I-L][\w=-]+\.ey[I-L][\w=-]+(?:\.[\w.+\/=-]+)?|[\-]{5}BEGIN[a-z\s]+PRIVATE\sKEY[\-]{5}[^\-]+[\-]{5}END[a-z\s]+PRIVATE\sKEY|ssh-rsa\s*[a-z0-9\/\.+]{100,}`
-	defaultWAFTimeout                = 4 * time.Millisecond
-	defaultTraceRate            uint = 100 // up to 100 appsec traces/s
+	// DefaultAPISecSampleRate is the default rate at which API Security schemas are extracted from requests
+	DefaultAPISecSampleRate = .1
+	// DefaultObfuscatorKeyRegex is the default regexp used to obfuscate keys
+	DefaultObfuscatorKeyRegex = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?)key)|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization`
+	// DefaultObfuscatorValueRegex is the default regexp used to obfuscate values
+	DefaultObfuscatorValueRegex = `(?i)(?:p(?:ass)?w(?:or)?d|pass(?:_?phrase)?|secret|(?:api_?|private_?|public_?|access_?|secret_?)key(?:_?id)?|token|consumer_?(?:id|key|secret)|sign(?:ed|ature)?|auth(?:entication|orization)?)(?:\s*=[^;]|"\s*:\s*"[^"]+")|bearer\s+[a-z0-9\._\-]+|token:[a-z0-9]{13}|gh[opsu]_[0-9a-zA-Z]{36}|ey[I-L][\w=-]+\.ey[I-L][\w=-]+(?:\.[\w.+\/=-]+)?|[\-]{5}BEGIN[a-z\s]+PRIVATE\sKEY[\-]{5}[^\-]+[\-]{5}END[a-z\s]+PRIVATE\sKEY|ssh-rsa\s*[a-z0-9\/\.+]{100,}`
+	// DefaultWAFTimeout is the default time limit (ms) past which a WAF run will timeout
+	DefaultWAFTimeout = 4 * time.Millisecond
+	// DefaultTraceRate is the default limit (trace/sec) past which ASM traces are sampled out
+	DefaultTraceRate uint = 100 // up to 100 appsec traces/s
 )
 
 // APISecConfig holds the configuration for API Security schemas reporting
@@ -59,16 +71,16 @@ func NewAPISecConfig() APISecConfig {
 }
 
 func apiSecurityEnabled() bool {
-	enabled, _ := strconv.ParseBool(os.Getenv(envAPISecEnabled))
+	enabled, _ := strconv.ParseBool(os.Getenv(EnvAPISecEnabled))
 	return enabled
 }
 
 func readAPISecuritySampleRate() float64 {
-	value := os.Getenv(envAPISecSampleRate)
+	value := os.Getenv(EnvAPISecSampleRate)
 	rate, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		logEnvVarParsingError(envAPISecSampleRate, value, err, defaultAPISecSampleRate)
-		return defaultAPISecSampleRate
+		logEnvVarParsingError(EnvAPISecSampleRate, value, err, DefaultAPISecSampleRate)
+		return DefaultAPISecSampleRate
 	}
 	// Clamp the value so that 0.0 <= rate <= 1.0
 	if rate < 0. {
@@ -81,8 +93,8 @@ func readAPISecuritySampleRate() float64 {
 
 // NewObfuscatorConfig creates and returns a new WAF obfuscator configuration by reading the env
 func NewObfuscatorConfig() ObfuscatorConfig {
-	keyRE := readObfuscatorConfigRegexp(envObfuscatorKey, defaultObfuscatorKeyRegex)
-	valueRE := readObfuscatorConfigRegexp(envObfuscatorValue, defaultObfuscatorValueRegex)
+	keyRE := readObfuscatorConfigRegexp(EnvObfuscatorKey, DefaultObfuscatorKeyRegex)
+	valueRE := readObfuscatorConfigRegexp(EnvObfuscatorValue, DefaultObfuscatorValueRegex)
 	return ObfuscatorConfig{KeyRegex: keyRE, ValueRegex: valueRE}
 }
 
@@ -101,10 +113,10 @@ func readObfuscatorConfigRegexp(name, defaultValue string) string {
 }
 
 // WAFTimeoutFromEnv reads and parses the WAF timeout value set through the env
-// If not set, it defaults to `defaultWAFTimeout`
+// If not set, it defaults to `DefaultWAFTimeout`
 func WAFTimeoutFromEnv() (timeout time.Duration) {
-	timeout = defaultWAFTimeout
-	value := os.Getenv(envWafTimeout)
+	timeout = DefaultWAFTimeout
+	value := os.Getenv(EnvWAFTimeout)
 	if value == "" {
 		return
 	}
@@ -118,31 +130,31 @@ func WAFTimeoutFromEnv() (timeout time.Duration) {
 
 	parsed, err := time.ParseDuration(value)
 	if err != nil {
-		logEnvVarParsingError(envWafTimeout, value, err, timeout)
+		logEnvVarParsingError(EnvWAFTimeout, value, err, timeout)
 		return
 	}
 	if parsed <= 0 {
-		logUnexpectedEnvVarValue(envWafTimeout, parsed, "expecting a strictly positive duration", timeout)
+		logUnexpectedEnvVarValue(EnvWAFTimeout, parsed, "expecting a strictly positive duration", timeout)
 		return
 	}
 	return parsed
 }
 
 // RateLimitFromEnv reads and parses the trace rate limit set through the env
-// If not set, it defaults to `defaultTraceRate`
+// If not set, it defaults to `DefaultTraceRate`
 func RateLimitFromEnv() (rate uint) {
-	rate = defaultTraceRate
-	value := os.Getenv(envTraceRateLimit)
+	rate = DefaultTraceRate
+	value := os.Getenv(EnvTraceRateLimit)
 	if value == "" {
 		return rate
 	}
 	parsed, err := strconv.ParseUint(value, 10, 0)
 	if err != nil {
-		logEnvVarParsingError(envTraceRateLimit, value, err, rate)
+		logEnvVarParsingError(EnvTraceRateLimit, value, err, rate)
 		return
 	}
 	if parsed == 0 {
-		logUnexpectedEnvVarValue(envTraceRateLimit, parsed, "expecting a value strictly greater than 0", rate)
+		logUnexpectedEnvVarValue(EnvTraceRateLimit, parsed, "expecting a value strictly greater than 0", rate)
 		return
 	}
 	return uint(parsed)
@@ -151,7 +163,7 @@ func RateLimitFromEnv() (rate uint) {
 // RulesFromEnv returns the security rules provided through the environment
 // If the env var is not set, the default recommended rules are returned instead
 func RulesFromEnv() ([]byte, error) {
-	filepath := os.Getenv(envRules)
+	filepath := os.Getenv(EnvRules)
 	if filepath == "" {
 		log.Debug("appsec: using the default built-in recommended security rules")
 		return DefaultRuleset()
