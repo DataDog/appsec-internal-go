@@ -14,7 +14,9 @@ jobs:
       - uses: actions/setup-go@v3
       - name: Upgrade AppSec Rules
         run: ./_tools/rules-updater/update.sh latest
-      - name: Detect Udpated Code
+        env:
+          GITHUB_TOKEN: ${{ secrets.UPDATE_RULES_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Detect Updated Code
         id: detect
         run: |-
           git add .
@@ -60,4 +62,4 @@ jobs:
             --base "main" --head "automation/update-appsec-rules" \
             --reviewer "@DataDog/asm-go"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MUTATOR_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

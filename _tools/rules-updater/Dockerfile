@@ -5,14 +5,23 @@ COPY writer/ /home/
 WORKDIR /home/
 
 ARG version
+ARG GITHUB_TOKEN
 
 RUN if [ "${version}" = "latest" ]; then \
-  curl -s 'https://api.github.com/repos/DataDog/appsec-event-rules/releases/latest' | jq -r '.tag_name' > .version; \
+  curl \
+    --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+    --header "X-Github-Api-Version: 2022-11-28" \
+    -fSsL 'https://api.github.com/repos/DataDog/appsec-event-rules/releases/latest' \
+  | jq -r '.tag_name' > .version; \
   else \
   echo "${version}" > .version; \
   fi
 
-RUN curl -fSsL "https://raw.githubusercontent.com/DataDog/appsec-event-rules/$(cat .version)/build/recommended.json" -o /home/rules.json
+RUN curl \
+    --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+    --header "X-Github-Api-Version: 2022-11-28" \
+    -fSsL "https://raw.githubusercontent.com/DataDog/appsec-event-rules/$(cat .version)/build/recommended.json" \
+    -o /home/rules.json
 RUN go run writer.go $(cat .version) > embed.go
 
 FROM scratch

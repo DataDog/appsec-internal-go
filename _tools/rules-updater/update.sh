@@ -17,6 +17,12 @@ set -eu
 
 [ $# -ne 1 ] && echo "Usage: $0 \"version\"" >&2 && exit 1
 
+if [ -z ${GITHUB_TOKEN:-} ]; then
+  echo "The GITHUB_TOKEN environmnent variable must be set to a valid GitHub"
+  echo "token with read access to the DataDog/appsec-event-rules repository."
+  exit 1
+fi
+
 echo "================ Minifying ================"
 
 tmpDir="$(mktemp -d /tmp/rule-update-XXXXXXXXX)"
@@ -26,7 +32,7 @@ destDir="$(readlink -f "$scriptDir/../../appsec/")"
 
 trap "rm -r $tmpDir" EXIT
 
-DOCKER_BUILDKIT=1 docker build -o type=local,dest="$tmpDir" --build-arg version="$1" --no-cache "$scriptDir"
+DOCKER_BUILDKIT=1 docker build -o type=local,dest="$tmpDir" --build-arg version="$1" --build-arg GITHUB_TOKEN="${GITHUB_TOKEN}" --no-cache "$scriptDir"
 echo "================   Done    ================"
 cp -v $tmpDir/embed.go $tmpDir/rules.json "$destDir"
 echo "Output written to $destDir"
