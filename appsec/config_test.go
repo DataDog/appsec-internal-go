@@ -23,10 +23,6 @@ func TestAPISecConfig(t *testing.T) {
 	}{
 		{
 			name:       "disabled",
-			sampleRate: DefaultAPISecSampleRate,
-		},
-		{
-			name:       "disabled",
 			enabledVar: "false",
 			sampleRate: DefaultAPISecSampleRate,
 		},
@@ -38,6 +34,11 @@ func TestAPISecConfig(t *testing.T) {
 		{
 			name:       "disabled",
 			enabledVar: "weirdvalue",
+			sampleRate: DefaultAPISecSampleRate,
+		},
+		{
+			name:       "enabled",
+			enabled:    true,
 			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
@@ -54,28 +55,27 @@ func TestAPISecConfig(t *testing.T) {
 		},
 		{
 			name:          "sampleRate 1.0",
-			enabledVar:    "true",
 			sampleRateVar: "1.0",
 			enabled:       true,
 			sampleRate:    1.,
 		},
 		{
 			name:          "sampleRate 50.0",
-			enabledVar:    "true",
 			sampleRateVar: "50.0",
 			enabled:       true,
 			sampleRate:    1.,
 		},
 		{
 			name:          "sampleRate -50.0",
-			enabledVar:    "true",
 			sampleRateVar: "-50.0",
 			enabled:       true,
 			sampleRate:    0.,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(EnvAPISecEnabled, tc.enabledVar)
+			if len(tc.enabledVar) > 0 {
+				t.Setenv(EnvAPISecEnabled, tc.enabledVar)
+			}
 			t.Setenv(EnvAPISecSampleRate, tc.sampleRateVar)
 			cfg := NewAPISecConfig()
 			require.Equal(t, tc.enabled, cfg.Enabled)
