@@ -74,7 +74,11 @@ func apiSecurityEnabled() bool {
 	enabled := true
 	str, set := os.LookupEnv(EnvAPISecEnabled)
 	if set {
-		enabled, _ = strconv.ParseBool(str)
+		var err error
+		enabled, err = strconv.ParseBool(str)
+		if err != nil {
+			logEnvVarParsingError(EnvAPISecEnabled, str, err, enabled)
+		}
 	}
 	return enabled
 }
