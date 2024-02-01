@@ -19,7 +19,7 @@ import (
 // Configuration environment variables
 const (
 	// EnvAPISecEnabled is the env var used to enable API Security
-	EnvAPISecEnabled = "DD_EXPERIMENTAL_API_SECURITY_ENABLED"
+	EnvAPISecEnabled = "DD_API_SECURITY_ENABLED"
 	// EnvAPISecSampleRate is the env var used to set the sampling rate of API Security schema extraction
 	EnvAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
 	// EnvObfuscatorKey is the env var used to provide the WAF key obfuscation regexp
@@ -71,7 +71,15 @@ func NewAPISecConfig() APISecConfig {
 }
 
 func apiSecurityEnabled() bool {
-	enabled, _ := strconv.ParseBool(os.Getenv(EnvAPISecEnabled))
+	enabled := true
+	str, set := os.LookupEnv(EnvAPISecEnabled)
+	if set {
+		var err error
+		enabled, err = strconv.ParseBool(str)
+		if err != nil {
+			logEnvVarParsingError(EnvAPISecEnabled, str, err, enabled)
+		}
+	}
 	return enabled
 }
 
