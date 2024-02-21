@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -253,17 +254,16 @@ func TestLimiter(t *testing.T) {
 }
 
 func BenchmarkLimiter(b *testing.B) {
+	defer goleak.VerifyNone(b, goleak.IgnoreCurrent())
+
 	for nbUsers := 1; nbUsers <= 1000; nbUsers *= 10 {
 		b.Run(fmt.Sprintf("%d-users", nbUsers), func(b *testing.B) {
-			defer func() {
-				b.StopTimer() // Don't measure how much time we spend investigating goroutines.
-				goleak.VerifyNone(b)
-			}()
-
 			var skipped, kept atomic.Uint64
 			limiter := NewTokenTicker(0, 100)
 			limiter.Start()
 			defer limiter.Stop()
+
+			b.StopTimer()
 			b.ResetTimer()
 
 			for n := 0; n < b.N; n++ {
@@ -279,6 +279,8 @@ func BenchmarkLimiter(b *testing.B) {
 						startBarrier.Wait()      // Sync the starts of the goroutines
 						defer stopBarrier.Done() // Signal we are done when returning
 
+						b.StartTimer() // Ensure the timer is started now...
+
 						for i := 0; i < 100; i++ {
 							if !l.Allow() {
 								skipped.Add(1)
@@ -288,9 +290,14 @@ func BenchmarkLimiter(b *testing.B) {
 						}
 					}(limiter, &kept, &skipped)
 				}
+
 				startBarrier.Done() // Unblock the user goroutines
 				stopBarrier.Wait()  // Wait for the user goroutines to be done
+				b.StopTimer()
 			}
+
+			assert.NotEqual(b, 0, kept.Load(), "expected to have accepted at least 1")
+			assert.NotEqual(b, 0, skipped.Load(), "expected to have skipped at least 1")
 		})
 	}
 }
