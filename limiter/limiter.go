@@ -3,6 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2022-present Datadog, Inc.
 
+// Package limiter provides simple rate limiting primitives, and an implementation of a token bucket rate limiter.
 package limiter
 
 import (
@@ -25,10 +26,10 @@ type Limiter interface {
 // TokenTicker.Allow() and TokenTicker.Stop() *must* be called once done using. Note that calling TokenTicker.Allow()
 // before TokenTicker.Start() is valid, but it means the bucket won't be refilling until the call to TokenTicker.Start() is made
 type TokenTicker struct {
-	tokens    atomic.Int64
-	maxTokens int64
-	ticker    *time.Ticker
-	stopChan  chan struct{}
+	tokens    atomic.Int64  // The amount of tokens currently available
+	maxTokens int64         // The maximum amount of tokens the bucket can hold
+	ticker    *time.Ticker  // The ticker used to update the bucket (nil if not started yet)
+	stopChan  chan struct{} // The channel to stop the ticker updater (nil if not started yet)
 }
 
 // NewTokenTicker is a utility function that allocates a token ticker, initializes necessary fields and returns it
