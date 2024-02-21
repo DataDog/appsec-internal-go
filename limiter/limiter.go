@@ -3,12 +3,13 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2022-present Datadog, Inc.
 
+// Package limiter provides simple rate limiting primitives, and an implementation of a token bucket rate limiter.
 package limiter
 
 import (
 	"time"
 
-	"go.uber.org/atomic"
+	"sync/atomic"
 )
 
 // Limiter is used to abstract the rate limiter implementation to only expose the needed function for rate limiting.
@@ -25,35 +26,43 @@ type Limiter interface {
 // TokenTicker.Allow() and TokenTicker.Stop() *must* be called once done using. Note that calling TokenTicker.Allow()
 // before TokenTicker.Start() is valid, but it means the bucket won't be refilling until the call to TokenTicker.Start() is made
 type TokenTicker struct {
-	tokens    atomic.Int64
-	maxTokens int64
-	ticker    *time.Ticker
-	stopChan  chan struct{}
+	tokens    atomic.Int64  // The amount of tokens currently available
+	maxTokens int64         // The maximum amount of tokens the bucket can hold
+	ticker    *time.Ticker  // The ticker used to update the bucket (nil if not started yet)
+	stopChan  chan struct{} // The channel to stop the ticker updater (nil if not started yet)
 }
 
 // NewTokenTicker is a utility function that allocates a token ticker, initializes necessary fields and returns it
 func NewTokenTicker(tokens, maxTokens int64) *TokenTicker {
-	return &TokenTicker{
-		tokens:    *atomic.NewInt64(tokens),
+	t := &TokenTicker{
 		maxTokens: maxTokens,
 	}
+	t.tokens.Store(tokens)
+	return t
 }
 
 // updateBucket performs a select loop to update the token amount in the bucket.
 // Used in a goroutine by the rate limiter.
-func (t *TokenTicker) updateBucket(ticksChan <-chan time.Time, startTime time.Time, syncChan chan struct{}) {
+func (t *TokenTicker) updateBucket(startTime time.Time, ticksChan <-chan time.Time, stopChan <-chan struct{}, syncChan chan<- struct{}) {
 	nsPerToken := time.Second.Nanoseconds() / t.maxTokens
 	elapsedNs := int64(0)
 	prevStamp := startTime
 
 	for {
 		select {
-		case <-t.stopChan:
+		case <-stopChan:
 			if syncChan != nil {
 				close(syncChan)
 			}
 			return
-		case stamp := <-ticksChan:
+		case stamp, ok := <-ticksChan:
+			if !ok {
+				// The ticker has been closed, stamp is a zero-value, we ignore that. We nil-out the
+				// ticksChan so we don't get stuck endlessly reading from this closed channel again.
+				ticksChan = nil
+				continue
+			}
+
 			// Compute the time in nanoseconds that passed between the previous timestamp and this one
 			// This will be used to know how many tokens can be added into the bucket depending on the limiter rate
 			elapsedNs += stamp.Sub(prevStamp).Nanoseconds()
@@ -96,22 +105,17 @@ func (t *TokenTicker) updateBucket(ticksChan <-chan time.Time, startTime time.Ti
 func (t *TokenTicker) Start() {
 	timeNow := time.Now()
 	t.ticker = time.NewTicker(500 * time.Microsecond)
-	t.start(t.ticker.C, timeNow, false)
+	t.start(timeNow, t.ticker.C, nil)
 }
 
 // start is used for internal testing. Controlling the ticker means being able to test per-tick
-// rather than per-duration, which is more reliable if the app is under a lot of stress.
-// sync is used to decide whether the limiter should create a channel for synchronization with the testing app after a
-// bucket update. The limiter is in charge of closing the channel in this case.
-func (t *TokenTicker) start(ticksChan <-chan time.Time, startTime time.Time, sync bool) <-chan struct{} {
+// rather than per-duration, which is more reliable if the app is under a lot of stress. The
+// syncChan, if non-nil, will receive one message after each tick from the ticksChan has been
+// processed, providing a strong synchronization primitive. The limiter will close the syncChan when
+// it is stopped, signaling that no further ticks will be processed.
+func (t *TokenTicker) start(startTime time.Time, ticksChan <-chan time.Time, syncChan chan<- struct{}) {
 	t.stopChan = make(chan struct{})
-	var syncChan chan struct{}
-
-	if sync {
-		syncChan = make(chan struct{})
-	}
-	go t.updateBucket(ticksChan, startTime, syncChan)
-	return syncChan
+	go t.updateBucket(startTime, ticksChan, t.stopChan, syncChan)
 }
 
 // Stop shuts down the rate limiter, taking care stopping the ticker and closing all channels
@@ -119,11 +123,13 @@ func (t *TokenTicker) Stop() {
 	// Stop the ticker only if it has been instantiated (not the case when testing by calling start() directly)
 	if t.ticker != nil {
 		t.ticker.Stop()
+		t.ticker = nil // Ensure stop can be called multiple times idempotently.
 	}
 	// Close the stop channel only if it has been created. This covers the case where Stop() is called without any prior
 	// call to Start()
 	if t.stopChan != nil {
 		close(t.stopChan)
+		t.stopChan = nil // Ensure stop can be called multiple times idempotently.
 	}
 }
 
