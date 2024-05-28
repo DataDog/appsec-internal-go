@@ -246,3 +246,22 @@ func TestRules(t *testing.T) {
 		require.Equal(t, StaticRecommendedRules, string(rules))
 	})
 }
+
+func TestRASPEnablement(t *testing.T) {
+	t.Run("enabled", func(t *testing.T) {
+		t.Setenv(EnvRASPEnabled, "true")
+		require.True(t, RASPEnabled())
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		t.Setenv(EnvRASPEnabled, "false")
+		require.False(t, RASPEnabled())
+	})
+
+	t.Run("unset", func(t *testing.T) {
+		// t.Setenv first to restore the original value at the end of the test
+		t.Setenv(EnvRASPEnabled, "")
+		os.Unsetenv(EnvRASPEnabled)
+		require.True(t, RASPEnabled())
+	})
+}
