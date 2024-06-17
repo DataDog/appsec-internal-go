@@ -32,11 +32,6 @@ func TestAPISecConfig(t *testing.T) {
 			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
-			name:       "disabled",
-			enabledVar: "weirdvalue",
-			sampleRate: DefaultAPISecSampleRate,
-		},
-		{
 			name:       "enabled",
 			enabled:    true,
 			sampleRate: DefaultAPISecSampleRate,
@@ -50,6 +45,12 @@ func TestAPISecConfig(t *testing.T) {
 		{
 			name:       "enabled",
 			enabledVar: "1",
+			enabled:    true,
+			sampleRate: DefaultAPISecSampleRate,
+		},
+		{
+			name:       "enabled",
+			enabledVar: "weirdvalue",
 			enabled:    true,
 			sampleRate: DefaultAPISecSampleRate,
 		},
