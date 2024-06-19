@@ -12,9 +12,3 @@ import _ "embed" // Blank import comment for golint compliance
 //
 //go:embed rules.json
 var StaticRecommendedRules string
-
-// StaticProcessors holds the default processors and scanners used for API Security
-// Not part of the recommended security rules
-//
-//go:embed processors.json
-var StaticProcessors string
