@@ -32,7 +32,7 @@ destDir="$(readlink -f "$scriptDir/../../appsec/")"
 
 trap "rm -r $tmpDir" EXIT
 
-DOCKER_BUILDKIT=1 docker build -o type=local,dest="$tmpDir" --build-arg version="$1" --build-arg GITHUB_TOKEN="${GITHUB_TOKEN}" --no-cache "$scriptDir"
+DOCKER_BUILDKIT=1 docker build -o type=local,dest="$tmpDir" --build-arg version="$1" --secret "id=GITHUB_TOKEN,env=GITHUB_TOKEN" --no-cache "$scriptDir"
 echo "================   Done    ================"
 cp -v $tmpDir/embed.go $tmpDir/rules.json "$destDir"
 echo "Output written to $destDir"
