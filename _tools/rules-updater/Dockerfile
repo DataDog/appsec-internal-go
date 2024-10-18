@@ -1,13 +1,14 @@
-FROM golang:1.21 as go-format
+# syntax=docker/dockerfile:1
+FROM golang:1.21 AS go-format
 
 RUN apt update && apt install -y jq curl
 COPY writer/ /home/
 WORKDIR /home/
 
 ARG version
-ARG GITHUB_TOKEN
 
-RUN if [ "${version}" = "latest" ]; then \
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN \
+  if [ "${version}" = "latest" ]; then \
   curl \
     --header "Authorization: Bearer ${GITHUB_TOKEN}" \
     --header "X-Github-Api-Version: 2022-11-28" \
@@ -17,7 +18,8 @@ RUN if [ "${version}" = "latest" ]; then \
   echo "${version}" > .version; \
   fi
 
-RUN curl \
+RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN \
+  curl \
     --header "Authorization: Bearer ${GITHUB_TOKEN}" \
     --header "X-Github-Api-Version: 2022-11-28" \
     -fSsL "https://raw.githubusercontent.com/DataDog/appsec-event-rules/$(cat .version)/build/recommended.json" \
