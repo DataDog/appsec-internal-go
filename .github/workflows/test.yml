@@ -1,9 +1,7 @@
 name: Test
 on:
   workflow_dispatch: # manually
-  schedule: # nightly
-    - cron: "0 0 * * *"
-  pull_request: {}
+  pull_request: # default behaviour opened, reopened, synchronize, edited, ready_for_review
   merge_group:
     branches:
       - main
@@ -23,14 +21,14 @@ jobs:
       fail-fast: false
     runs-on: ${{ matrix.runs-on }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
 
       - name: Go modules cache
-        uses: actions/cache@v3
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: ~/go/pkg/mod
           key: go-pkg-mod-${{ hashFiles('**/go.sum') }}
@@ -57,13 +55,13 @@ jobs:
         cgo_enabled: [ "0", "1" ] # test it compiles with and without cgo
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # Install gcc and the libc headers on alpine images
       - if: ${{ matrix.distribution == 'alpine' }}
         run: apk add gcc musl-dev libc6-compat git
 
       - name: Go modules cache
-        uses: actions/cache@v3
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: ~/go/pkg/mod
           key: go-pkg-mod-${{ hashFiles('**/go.sum') }}
