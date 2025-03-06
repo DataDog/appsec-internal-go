@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DataDog/appsec-internal-go/apisec/internal/config"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSampler(t *testing.T) {
@@ -29,14 +29,8 @@ func TestSampler(t *testing.T) {
 	}
 
 	var clock atomic.Int64
-	clock.Store(time.Now().UnixMilli())
-
-	msSinceEpoch := func() int64 {
-		return clock.Load()
-	}
-	timeSince := func(ms int64) time.Duration {
-		return time.Duration(clock.Load()-ms) * time.Millisecond
-	}
+	clock.Store(time.Now().Unix())
+	unixTime := func() int64 { return clock.Load() }
 
 	// We'll make the fake clock progress 1s every 10ms (100x faster than real time)
 	ticker := time.NewTicker(10 * time.Millisecond)
@@ -47,7 +41,7 @@ func TestSampler(t *testing.T) {
 		for {
 			select {
 			case <-ticker.C:
-				clock.Add(time.Second.Milliseconds())
+				clock.Add(1)
 			case <-ctx.Done():
 				return
 			}
@@ -55,17 +49,20 @@ func TestSampler(t *testing.T) {
 	}()
 
 	var (
-		subject = newSampler(30*time.Second, msSinceEpoch, timeSince)
+		subject = newSampler(30*time.Second, unixTime)
+		sb      sync.WaitGroup
 		wg      sync.WaitGroup
 		kept    atomic.Uint64
 		dropped atomic.Uint64
 	)
+	sb.Add(1 + runtime.GOMAXPROCS(0))
 	for range runtime.GOMAXPROCS(0) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			sb.Done()
 
-			for i := range 8 * maxItemCount {
+			for i := range 8 * config.MaxItemCount {
 				if subject.DecisionFor(randomSample()) {
 					kept.Add(1)
 				} else {
@@ -78,7 +75,9 @@ func TestSampler(t *testing.T) {
 		}()
 	}
 
+	sb.Done()
 	wg.Wait()
+
 	assert.Positive(t, kept.Load(), "expected to have kept some samples")
 	assert.Positive(t, dropped.Load(), "expected to have dropped some samples")
 }
@@ -89,7 +88,7 @@ func TestSamplingKeyHash(t *testing.T) {
 	t.Run("collisions-are-infrequent", func(t *testing.T) {
 		hashes := make(map[uint64]struct{}, len(testVector))
 		for _, key := range testVector {
-			hashes[key.hash(1337)] = struct{}{}
+			hashes[key.hash()] = struct{}{}
 		}
 
 		// Validates that the hash function results in less than 1% collisions. This
@@ -102,34 +101,21 @@ func TestSamplingKeyHash(t *testing.T) {
 	t.Run("distribution-is-uniform-on-buckets", func(t *testing.T) {
 		buckets := make(map[int]struct{}, len(testVector))
 		for _, key := range testVector {
-			buckets[int(key.hash(1337)%maxItemCount)] = struct{}{}
+			buckets[int(key.hash()%config.MaxItemCount)] = struct{}{}
 		}
 
 		// Validates that the hash function results in hitting at least 80% of the
 		// buckets. This is arbitrary, and may feel a little low, but our sample
 		// count is quite close to the bucket count, so this is actually solid.
-		assert.GreaterOrEqual(t, float64(len(buckets))/float64(maxItemCount), .80,
+		assert.GreaterOrEqual(t, float64(len(buckets))/float64(config.MaxItemCount), .80,
 			"the hash function should slot into 50% of the buckets at least")
-	})
-
-	t.Run("seed-affects-hash", func(t *testing.T) {
-		sample := randomSample()
-
-		seen := make(map[uint64]struct{})
-		for seed := range uint64(100) {
-			hash := sample.hash(seed)
-			seen[hash] = struct{}{}
-		}
-
-		require.GreaterOrEqual(t, len(seen), 50,
-			"the hash should have changed at east half of the time")
 	})
 }
 
 func BenchmarkSampler(b *testing.B) {
 	initTestVector()
 
-	for _, keySpaceSize := range []int{maxItemCount / 2, maxItemCount * 2} {
+	for _, keySpaceSize := range []int{config.MaxItemCount / 2, config.MaxItemCount * 2} {
 		keySpace := testVector[:keySpaceSize]
 		b.Run(fmt.Sprintf("keySpaceSize=%d", keySpaceSize), func(b *testing.B) {
 			for _, parallelism := range []int{1, 1000} {
