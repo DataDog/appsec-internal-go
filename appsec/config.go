@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/DataDog/appsec-internal-go/apisec"
 	"github.com/DataDog/appsec-internal-go/log"
 )
 
@@ -52,6 +53,7 @@ const (
 // It is used to enabled/disable the feature.
 type APISecConfig struct {
 	Enabled bool
+	Sampler apisec.Sampler
 }
 
 // ObfuscatorConfig wraps the key and value regexp to be passed to the WAF to perform obfuscation.
@@ -60,9 +62,26 @@ type ObfuscatorConfig struct {
 	ValueRegex string
 }
 
+type APISecOption func(*APISecConfig)
+
 // NewAPISecConfig creates and returns a new API Security configuration by reading the env
-func NewAPISecConfig() APISecConfig {
-	return APISecConfig{Enabled: boolEnv(EnvAPISecEnabled, true)}
+func NewAPISecConfig(opts ...APISecOption) APISecConfig {
+	cfg := APISecConfig{
+		Enabled: boolEnv(EnvAPISecEnabled, true),
+		Sampler: apisec.NewSampler(),
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return cfg
+}
+
+// WithAPISecSampler sets the sampler for the API Security configuration. This is useful for testing
+// purposes.
+func WithAPISecSampler(sampler apisec.Sampler) APISecOption {
+	return func(c *APISecConfig) {
+		c.Sampler = sampler
+	}
 }
 
 // RASPEnabled returns true if RASP functionalities are enabled through the env, or if DD_APPSEC_RASP_ENABLED

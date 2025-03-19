@@ -15,7 +15,11 @@ import (
 )
 
 type (
-	Sampler timed.Set
+	Sampler interface {
+		DecisionFor(SamplingKey) bool
+	}
+
+	timedSetSampler timed.Set
 
 	SamplingKey struct {
 		// Method is the value of the http.method span tag
@@ -31,20 +35,20 @@ type (
 
 // NewSampler returns a new [*Sampler] with the default clock function based on
 // [time.Now].
-func NewSampler() *Sampler {
+func NewSampler() Sampler {
 	return NewSamplerWithInterval(config.Interval)
 }
 
 // NewSamplerWithInterval returns a new [*Sampler] with the specified interval
 // instead of the default of 30 seconds.
-func NewSamplerWithInterval(interval time.Duration) *Sampler {
+func NewSamplerWithInterval(interval time.Duration) Sampler {
 	return newSampler(interval, timed.UnixTime)
 }
 
 // newSampler allows creating a new [*Sampler] with custom clock function,
 // which is useful for testing.
-func newSampler(interval time.Duration, clock clockFunc) *Sampler {
-	return (*Sampler)(timed.NewSet(interval, clock))
+func newSampler(interval time.Duration, clock clockFunc) Sampler {
+	return (*timedSetSampler)(timed.NewSet(interval, clock))
 }
 
 // DecisionFor makes a sampling decision for the provided [SamplingKey]. If it
@@ -52,7 +56,7 @@ func newSampler(interval time.Duration, clock clockFunc) *Sampler {
 // with the necessary actions. If it returns false, the request has been
 // dropped, and the caller should short-circuit without extending further
 // effort.
-func (s *Sampler) DecisionFor(key SamplingKey) bool {
+func (s *timedSetSampler) DecisionFor(key SamplingKey) bool {
 	keyHash := key.hash()
 	return (*timed.Set)(s).Hit(keyHash)
 }

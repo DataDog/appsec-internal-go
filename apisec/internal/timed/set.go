@@ -25,9 +25,9 @@ const capacity = 2 * config.MaxItemCount
 type Set struct {
 	// table is the pointer to the current backing hash table
 	table atomic.Pointer[table]
-	// biasedClock is used to determine the current timestamp when making
+	// clock is used to determine the current timestamp when making
 	// changes
-	biasedClock
+	clock biasedClock
 	// intervalSeconds is the amount of time in seconds that an entry is
 	// considered live for.
 	intervalSeconds uint32
@@ -59,7 +59,7 @@ func NewSet(interval time.Duration, clock ClockFunc) *Set {
 
 	intervalSeconds := uint32(interval.Seconds())
 	set := &Set{
-		biasedClock:     newBiasedClock(clock, intervalSeconds),
+		clock:           newBiasedClock(clock, intervalSeconds),
 		intervalSeconds: intervalSeconds,
 		zeroKey:         rand.Uint64(),
 	}
@@ -94,7 +94,7 @@ func (m *Set) Hit(key uint64) bool {
 		key = m.zeroKey
 	}
 
-	now := m.Now()
+	now := m.clock.Now()
 	threshold := now - m.intervalSeconds
 
 	var (
