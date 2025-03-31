@@ -20,8 +20,9 @@ import (
 // rebuild, the old table may contrinue to receive items for a short while.
 const capacity = 2 * config.MaxItemCount
 
-// Set is a specialized open addressing hash table implementation, using
-// Copy-Update-Replace semantics to operate in a completely lock-less manner.
+// Set is a specialized open-addressing-hash-table-based implementation of a
+// specialized LRU cache, using Copy-Update-Replace semantics to operate in a
+// completely lock-less manner.
 type Set struct {
 	// table is the pointer to the current backing hash table
 	table atomic.Pointer[table]
