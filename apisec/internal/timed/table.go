@@ -64,22 +64,20 @@ func (t *table) FindEntry(key uint64) (*entry, bool) {
 
 	for {
 		entry := &t.entries[idx]
-		switch entry.Key.Load() {
-		case key:
-			// This entry is the one we're looking for...
-			return entry, true
-
-		case 0:
-			// This entry is currently blank, so we can use it!
-			return entry, false
+		if curKey := entry.Key.Load(); curKey == 0 || curKey == key {
+			// This is either the entry we're looking for, or an empty slot we can
+			// claim for this key.
+			return entry, curKey == key
 		}
-
-		if idx = (idx + 1) % capacity; idx == origIdx {
-			// We have gone full circle without finding a blank slot, so we give up
-			// and return our last resort slot.
-			return &t.entries[capacity], true
+		idx = (idx + 1) % capacity
+		if idx == origIdx {
+			// We are back at the original index, meaning the map is full.
+			break
 		}
 	}
+	// We have gone full circle without finding a blank slot, so we give up and
+	// return our last resort slot that is reserved for this situation.
+	return &t.entries[capacity], true
 }
 
 // PrunedCopy creates a copy of this table with expired items removed, retaining
