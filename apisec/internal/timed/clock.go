@@ -7,11 +7,11 @@ package timed
 
 import "time"
 
-// biasedClock is a specialized clock implementation used to ensure we can get
-// 32-bit wide timestamps without having to worry about wraparound.
 type (
 	ClockFunc = func() int64
 
+	// biasedClock is a specialized clock implementation used to ensure we can get
+	// 32-bit wide timestamps without having to worry about wraparound.
 	biasedClock struct {
 		// clock is the underlying clock, returning a timestamp in seconds.
 		clock ClockFunc

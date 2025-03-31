@@ -15,7 +15,7 @@ import (
 )
 
 // capacity is the maximum number of items that may be temporarily present in a
-// [timedSet]. An eviction triggers once [maxItemCount] is reached, however the
+// [Set]. An eviction triggers once [config.MaxItemCount] is reached, however the
 // implementation is based on Copy-Update-Replace semantics, so during a table
 // rebuild, the old table may contrinue to receive items for a short while.
 const capacity = 2 * config.MaxItemCount
@@ -75,9 +75,9 @@ func NewSet(interval time.Duration, clock ClockFunc) *Set {
 }
 
 // Hit determines whether the given key should be kept or dropped based on the
-// last time it was sampled. If the table grows larger than [maxItemCount], the
-// [timedSet.rebuild] method is called in a separate goroutine to begin the
-// eviction process. Until this has completed, all updates to the [timedSet] are
+// last time it was sampled. If the table grows larger than [config.MaxItemCount], the
+// [Set.rebuild] method is called in a separate goroutine to begin the
+// eviction process. Until this has completed, all updates to the [Set] are
 // effectively dropped, as they happen on the soon-to-be-replaced table.
 //
 // Note: in order to run completely lock-less, [Set] cannot store the 0 key in
@@ -90,7 +90,7 @@ func (m *Set) Hit(key uint64) bool {
 	if key == 0 {
 		// The 0 key is used as a way to imply a slot is empty; so we cannot store
 		// it in the table. To address this, when passed a 0 key, we will use the
-		// [timedSet.zeroKey] as a substitute.
+		// [Set.zeroKey] as a substitute.
 		key = m.zeroKey
 	}
 
@@ -196,8 +196,8 @@ func (m *Set) Hit(key uint64) bool {
 
 // rebuild runs in a separate goroutine, and creates a pruned copy of the
 // provided [table] with old and expired entries removed. It will keep at most
-// [maxItemCount]*2/3 items in the new table. Once the rebuild is complete, it
-// replaces the [timedSet.table] with the copy.
+// [config.MaxItemCount]*2/3 items in the new table. Once the rebuild is complete, it
+// replaces the [Set.table] with the copy.
 func (m *Set) rebuild(oldTable *table, threshold uint32) {
 	// Since Go has a GC, we can "just" replace the current [Set.table] with a
 	// trimmed down copy, and let the GC take care of reclaiming the old one, once

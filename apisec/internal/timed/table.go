@@ -165,7 +165,7 @@ func (n *sortedEntries) Len() int {
 
 // Less implements [heap.Interface.Less].
 func (n *sortedEntries) Less(i int, j int) bool {
-	// We are sorting "most recent first", so higer access time is lower in the
+	// We are sorting "most recent first", so higher access time is lower in the
 	// heap's definition.
 	iatime := (*n)[i].Data.AccessTime()
 	jatime := (*n)[j].Data.AccessTime()
