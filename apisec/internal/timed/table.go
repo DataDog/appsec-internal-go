@@ -150,6 +150,13 @@ func (d entryData) SampleTime() uint32 {
 	return uint32(d)
 }
 
+// LastAccessKept returns true if the last access to this entry resulted in a
+// decision to keep the sample. This is true of the access time is not 0 and is
+// equal to the sample time.
+func (d entryData) LastAccessKept() bool {
+	return d.AccessTime() != 0 && d.AccessTime() == d.SampleTime()
+}
+
 // WithAccessTime returns a new [entryData] by copying the receiver and
 // replacing the access time portion with the specified value.
 func (d entryData) WithAccessTime(atime uint32) entryData {
