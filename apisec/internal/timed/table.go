@@ -6,7 +6,7 @@
 package timed
 
 import (
-	"container/heap"
+	"slices"
 	"sync/atomic"
 
 	"github.com/DataDog/appsec-internal-go/apisec/internal/config"
@@ -50,9 +50,6 @@ type (
 		// Data is the Data associated with the entry.
 		Data entryData
 	}
-	// sortedEntries is a [heap.Interface] used to sort [copiableEntry] when
-	// rebuilding the table in order to evict older items.
-	sortedEntries []copiableEntry
 )
 
 // FindEntry locates the correct entry for use in the table. If an entry already
@@ -84,30 +81,31 @@ func (t *table) FindEntry(key uint64) (*entry, bool) {
 // up to the [config.MaxItemCount]*2/3 most recent items from the original.
 func (t *table) PrunedCopy(threshold uint32) *table {
 	// Sort the existing entries (most recent at the top)
-	newEntries := make(sortedEntries, 0, len(t.entries))
-	heap.Init(&newEntries)
-	for i := range t.entries {
-		entry := &t.entries[i]
-		if entry.Key.Load() == 0 || entry.Data.Load().SampleTime() < threshold {
-			// Entry is blank or expired, not carrying it around...
+	newEntries := make([]copiableEntry, 0, capacity)
+	for i := range capacity {
+		if t.entries[i].BlankOrExpired(threshold) {
 			continue
 		}
-		heap.Push(&newEntries, entry.Copyable())
+		newEntries = append(newEntries, t.entries[i].Copyable())
 	}
+	slices.SortFunc(newEntries, copiableEntry.Compare)
 
 	// Insert up to [config.MaxItemCount]*2/3 items into the new table
-	var count int32
-	t = &table{}
-	for newEntries.Len() != 0 && count < config.MaxItemCount*2/3 {
-		entry, _ := heap.Pop(&newEntries).(copiableEntry)
+	t = new(table)
+	count := min(int32(config.MaxItemCount*2/3), int32(len(newEntries)))
+	for _, entry := range newEntries[:count] {
 		slot, _ := t.FindEntry(entry.Key)
 		slot.Key.Store(entry.Key)
 		slot.Data.Store(entry.Data)
-		count++
 	}
 	t.count.Store(count)
 
 	return t
+}
+
+// BlankOrExpired returns true if the receiver is blank or has expired already.
+func (e *entry) BlankOrExpired(threshold uint32) bool {
+	return e.Key.Load() == 0 || e.Data.Load().SampleTime() < threshold
 }
 
 // Copyable returns a [copyableEntry] version of this entry.
@@ -164,35 +162,20 @@ func (d entryData) WithAccessTime(atime uint32) entryData {
 	return (d & 0x00000000_FFFFFFFF) | (entryData(atime) << 32)
 }
 
-var _ heap.Interface = (*sortedEntries)(nil)
-
-// Len implements [heap.Interface.Len].
-func (n *sortedEntries) Len() int {
-	return len(*n)
-}
-
-// Less implements [heap.Interface.Less].
-func (n *sortedEntries) Less(i int, j int) bool {
-	// We are sorting "most recent first", so higher access time is lower in the
-	// heap's definition.
-	iatime := (*n)[i].Data.AccessTime()
-	jatime := (*n)[j].Data.AccessTime()
-	return iatime > jatime
-}
-
-// Swap implements [heap.Interface.Swap].
-func (n *sortedEntries) Swap(i int, j int) {
-	(*n)[i], (*n)[j] = (*n)[j], (*n)[i]
-}
-
-// Push implements [heap.Interface.Push].
-func (n *sortedEntries) Push(x any) {
-	*n = append(*n, x.(copiableEntry))
-}
-
-// Pop implements [heap.Interface.Pop].
-func (n *sortedEntries) Pop() any {
-	var res any
-	res, *n = (*n)[len(*n)-1], (*n)[:len(*n)-1]
-	return res
+// Compare performs a comparison between the receiver and another entry; such
+// that most recently sampled entries come first. Two entries with the same
+// sample time are considered equal.
+func (e copiableEntry) Compare(other copiableEntry) int {
+	tst := e.Data.SampleTime()
+	ost := other.Data.SampleTime()
+	if tst > ost {
+		// Receiver was sampled more recently (sorts higher)
+		return 1
+	}
+	if tst < ost {
+		// Receiver was sampled less recently (sorts lower)
+		return -1
+	}
+	// Both have the same sample time, so we consider them equal.
+	return 0
 }
