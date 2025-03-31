@@ -21,6 +21,8 @@ import (
 )
 
 func TestSampler(t *testing.T) {
+	initTestVector()
+
 	ctx := context.Background()
 	if deadline, ok := t.Deadline(); ok {
 		var cancel context.CancelFunc
@@ -28,58 +30,101 @@ func TestSampler(t *testing.T) {
 		defer cancel()
 	}
 
-	var clock atomic.Int64
-	clock.Store(time.Now().Unix())
-	unixTime := func() int64 { return clock.Load() }
+	const samplesToTake = config.MaxItemCount << 10
 
-	// We'll make the fake clock progress 1s every 10ms (100x faster than real time)
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-	ctx, stopClock := context.WithCancel(ctx)
-	defer stopClock()
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				clock.Add(1)
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	var (
-		subject = newSampler(30*time.Second, unixTime)
-		sb      sync.WaitGroup
-		wg      sync.WaitGroup
-		kept    atomic.Uint64
-		dropped atomic.Uint64
-	)
-	sb.Add(1 + runtime.GOMAXPROCS(0))
-	for range runtime.GOMAXPROCS(0) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sb.Done()
-
-			for i := range 8 * config.MaxItemCount {
-				if subject.DecisionFor(randomSample()) {
-					kept.Add(1)
-				} else {
-					dropped.Add(1)
-				}
-				if i%10 == 0 {
-					time.Sleep(time.Millisecond)
-				}
-			}
-		}()
+	type testCase struct {
+		// KeySpace is the set of keys to randomly draw from when sampling.
+		KeySpace []SamplingKey
+		// SimulatedTPS is the number of samples per second to simulate.
+		SimulatedTPS int
+		// ExpectedKeepRate is the expected rate of samples being kept [0;1]
+		ExpectedKeepRate float64
+		// AllowedDelta is the allowed delta for the keep rate.
+		AllowedDelta float64
+	}
+	testCases := map[string]testCase{
+		"small": {
+			KeySpace:         testVector[:config.MaxItemCount/32],
+			SimulatedTPS:     10,
+			ExpectedKeepRate: .0415,
+			AllowedDelta:     .0001,
+		},
+		"medium": {
+			KeySpace:         testVector[:config.MaxItemCount/16],
+			SimulatedTPS:     20,
+			ExpectedKeepRate: .0415,
+			AllowedDelta:     .0001,
+		},
+		"high": {
+			KeySpace:         testVector[:config.MaxItemCount*2/3],
+			SimulatedTPS:     1000,
+			ExpectedKeepRate: .0091,
+			AllowedDelta:     .0001,
+		},
+		"large": {
+			KeySpace:         testVector[:config.MaxItemCount],
+			SimulatedTPS:     1000,
+			ExpectedKeepRate: .01,
+			AllowedDelta:     .005, // Small chance of collision here... so a bit more wiggle room...
+		},
+		"extreme": { // Not actually realistic usage... Evictions galore!
+			KeySpace:         testVector[:2*config.MaxItemCount],
+			SimulatedTPS:     10000,
+			ExpectedKeepRate: .21,
+			AllowedDelta:     .05, // Very random evictions, so keep rate can be pretty off...
+		},
 	}
 
-	sb.Done()
-	wg.Wait()
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
 
-	assert.Positive(t, kept.Load(), "expected to have kept some samples")
-	assert.Positive(t, dropped.Load(), "expected to have dropped some samples")
+			assert.Positive(t, tc.SimulatedTPS)
+			assert.GreaterOrEqual(t, tc.ExpectedKeepRate, 0.0)
+			assert.GreaterOrEqual(t, 1.0, tc.ExpectedKeepRate)
+
+			var (
+				goroutineCount = max(2, runtime.GOMAXPROCS(0))
+				clock          = newFakeClock(ctx, t, goroutineCount)
+				subject        = newSampler(30*time.Second, clock.Unix)
+				sb             sync.WaitGroup // Start barrier
+				wg             sync.WaitGroup // Completion barrier
+				kept           atomic.Uint64
+				dropped        atomic.Uint64
+			)
+			sb.Add(1 + goroutineCount) // All child goroutines + this one...
+			wg.Add(goroutineCount)
+			for range goroutineCount {
+				go func() {
+					defer wg.Done()
+
+					sb.Done() // We're ready for business, signal to the start barrier...
+					sb.Wait() // Wait for all the goroutines to have started...
+
+					for i := range samplesToTake {
+						if subject.DecisionFor(randomOne(tc.KeySpace)) {
+							kept.Add(1)
+						} else {
+							dropped.Add(1)
+						}
+						// The clock ticks every 10 samples (model a server processing 10 TPS)
+						if i%tc.SimulatedTPS == 0 {
+							clock.WaitForTick()
+						}
+					}
+				}()
+			}
+
+			sb.Done()
+			wg.Wait()
+
+			samplesTaken := kept.Load() + dropped.Load()
+
+			keepRate := float64(kept.Load()) / float64(samplesTaken)
+			assert.InDelta(t, tc.ExpectedKeepRate, keepRate, tc.AllowedDelta, "expected keep rate around %.2f±%.2f%%, was %.2f%%", 100*tc.ExpectedKeepRate, 100*tc.AllowedDelta, 100*keepRate)
+		})
+	}
 }
 
 func TestSamplingKeyHash(t *testing.T) {
@@ -162,9 +207,68 @@ func BenchmarkSampler(b *testing.B) {
 	}
 }
 
-func randomSample() SamplingKey {
-	initTestVector()
-	return randomOne(testVector)
+type fakeClock struct {
+	t        testing.TB
+	goCount  int
+	now      int64
+	needTick atomic.Bool
+	wg       sync.WaitGroup
+	cnd      sync.Cond
+}
+
+func newFakeClock(ctx context.Context, t testing.TB, goroutineCount int) *fakeClock {
+	res := &fakeClock{
+		t:       t,
+		goCount: goroutineCount,
+		now:     time.Now().Unix(),
+		cnd:     *sync.NewCond(&sync.Mutex{}),
+	}
+	res.wg.Add(goroutineCount)
+	go res.tick(ctx)
+	return res
+}
+
+func (c *fakeClock) Unix() int64 {
+	return c.now
+}
+
+func (c *fakeClock) WaitForTick() {
+	c.cnd.L.Lock()
+
+	c.needTick.CompareAndSwap(false, true)
+	curTime := c.now
+
+	c.wg.Done()
+	for curTime == c.now && c.now > 0 {
+		c.cnd.Wait()
+	}
+	c.cnd.L.Unlock()
+}
+
+func (c *fakeClock) tick(ctx context.Context) {
+	c.t.Log("Start ticker!")
+	for {
+		select {
+		case <-ctx.Done():
+			// Context is cancelled, stop the ticker...
+			c.cnd.L.Lock()
+			c.now = 0
+			c.cnd.L.Unlock()
+			c.t.Log("Stop ticker!")
+			return
+		default:
+			if !c.needTick.Load() {
+				continue
+			}
+			c.wg.Wait()
+			c.cnd.L.Lock()
+			c.now++
+			c.needTick.Store(false)
+			c.cnd.Broadcast()
+			c.wg.Add(c.goCount)
+			c.cnd.L.Unlock()
+		}
+	}
 }
 
 func randomOne[T any](list []T) T {
