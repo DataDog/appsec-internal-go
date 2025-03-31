@@ -18,7 +18,10 @@ type (
 	table struct {
 		// entries is the set of items contained in the table. The last entry is
 		// reserved for cases where all slots are taken before a rebuild is
-		// complete.
+		// complete (it saves us from having to write code to deal with the
+		// impossibility to find an empty slot, as we always have a slot to return.
+		// We could return a throw-away slot but this would incur a heap allocation,
+		// which we can spare by doing this).
 		entries [capacity + 1]entry
 		// count is the number of items currently stored in the table.
 		count atomic.Int32

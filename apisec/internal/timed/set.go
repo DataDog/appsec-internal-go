@@ -137,15 +137,15 @@ func (m *Set) Hit(key uint64) bool {
 		}
 
 		if entry.Key.Load() == key {
-			// Another goroutine has already used this slot for this key, and very
-			// little time has passed since then, so we can DROP this sample... This
-			// is extremely unlikely to happen (and nearly impossible to reliably
-			// cover in unit tests).
+			// Another goroutine has concurrently claimed this slot for this key, and
+			// since very little time has passed since then, so we can DROP this
+			// sample... This is extremely unlikely to happen (and nearly impossible
+			// to reliably cover in unit tests).
 			return false
 		}
 
-		// Another goroutine has already used this slot for another key... We
-		// will try to find another slot then...
+		// Another goroutine has concurrently claimed this slot for another key...
+		// We will try to find another slot then...
 		table.count.Add(-1)
 	}
 
@@ -161,7 +161,7 @@ func (m *Set) Hit(key uint64) bool {
 		for !entry.Data.CompareAndSwap(curData, nowEntryData) {
 			// Another goroutine has already changed it...
 			curData = entry.Data.Load()
-			if curData.AccessTime() == curData.SampleTime() {
+			if curData.LastAccessKept() {
 				// The concurrent update was a KEEP (as is indicated by the fact its
 				// atime and stime are equal), so this one is necessarily a DROP.
 				return false
