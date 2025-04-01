@@ -19,7 +19,7 @@ type (
 		DecisionFor(SamplingKey) bool
 	}
 
-	timedSetSampler timed.Set
+	timedSetSampler timed.LRU
 
 	SamplingKey struct {
 		// Method is the value of the http.method span tag
@@ -58,7 +58,7 @@ func newSampler(interval time.Duration, clock clockFunc) Sampler {
 // effort.
 func (s *timedSetSampler) DecisionFor(key SamplingKey) bool {
 	keyHash := key.hash()
-	return (*timed.Set)(s).Hit(keyHash)
+	return (*timed.LRU)(s).Hit(keyHash)
 }
 
 // hash returns a hash of the key. Given the same seed, it always produces the
