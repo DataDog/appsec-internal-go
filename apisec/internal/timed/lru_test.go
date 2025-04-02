@@ -6,6 +6,7 @@
 package timed
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -16,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSet(t *testing.T) {
+func TestLRU(t *testing.T) {
 	t.Run("New", func(t *testing.T) {
 		require.PanicsWithError(t, "NewSet: interval must be at least 1s, got 0s", func() { NewSet(0, UnixTime) })
 		require.PanicsWithError(t, "NewSet: interval must be at least 1s, got 10ms", func() { NewSet(10*time.Millisecond, UnixTime) })
@@ -54,20 +55,20 @@ func TestSet(t *testing.T) {
 	})
 
 	t.Run("rebuild", func(t *testing.T) {
-		var fakeTime atomic.Int64
-		fakeTime.Store(time.Now().Unix())
-		fakeClock := func() int64 { return fakeTime.Load() }
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		subject := NewSet(config.Interval, fakeClock)
+		goCount := runtime.GOMAXPROCS(0) * 10
+		clock := newFakeClock(ctx, t, goCount)
+		subject := NewSet(config.Interval, clock.Unix)
 
 		var (
-			goCount       = runtime.GOMAXPROCS(0) * 10
 			startBarrier  sync.WaitGroup
 			finishBarrier sync.WaitGroup
 		)
 		startBarrier.Add(goCount + 1)
 		finishBarrier.Add(goCount)
-		for g := range goCount {
+		for range goCount {
 			go func() {
 				defer finishBarrier.Done()
 				startBarrier.Done()
@@ -75,9 +76,7 @@ func TestSet(t *testing.T) {
 
 				for key := range uint64(config.MaxItemCount * 4) {
 					_ = subject.Hit(key)
-					if g == 0 {
-						fakeTime.Add(1)
-					}
+					clock.WaitForTick()
 				}
 			}()
 		}
@@ -106,4 +105,68 @@ func TestSet(t *testing.T) {
 		// We shoudl not have more than [maxItemCount] items left in the map...
 		require.LessOrEqual(t, count, config.MaxItemCount)
 	})
+}
+
+type fakeClock struct {
+	t        testing.TB
+	goCount  int
+	now      int64
+	needTick atomic.Bool
+	wg       sync.WaitGroup
+	cnd      sync.Cond
+}
+
+func newFakeClock(ctx context.Context, t testing.TB, goroutineCount int) *fakeClock {
+	res := &fakeClock{
+		t:       t,
+		goCount: goroutineCount,
+		now:     time.Now().Unix(),
+		cnd:     *sync.NewCond(&sync.Mutex{}),
+	}
+	res.wg.Add(goroutineCount)
+	go res.tick(ctx)
+	return res
+}
+
+func (c *fakeClock) Unix() int64 {
+	return c.now
+}
+
+func (c *fakeClock) WaitForTick() {
+	c.cnd.L.Lock()
+
+	c.needTick.CompareAndSwap(false, true)
+	curTime := c.now
+
+	c.wg.Done()
+	for curTime == c.now && c.now > 0 {
+		c.cnd.Wait()
+	}
+	c.cnd.L.Unlock()
+}
+
+func (c *fakeClock) tick(ctx context.Context) {
+	c.t.Log("Start ticker!")
+	for {
+		select {
+		case <-ctx.Done():
+			// Context is cancelled, stop the ticker...
+			c.cnd.L.Lock()
+			c.now = 0
+			c.cnd.L.Unlock()
+			c.t.Log("Stop ticker!")
+			return
+		default:
+			if !c.needTick.Load() {
+				continue
+			}
+			c.wg.Wait()
+			c.cnd.L.Lock()
+			c.now++
+			c.needTick.Store(false)
+			c.cnd.Broadcast()
+			c.wg.Add(c.goCount)
+			c.cnd.L.Unlock()
+		}
+	}
 }

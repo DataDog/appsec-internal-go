@@ -168,11 +168,11 @@ func (d entryData) WithAccessTime(atime uint32) entryData {
 func (e copiableEntry) Compare(other copiableEntry) int {
 	tst := e.Data.SampleTime()
 	ost := other.Data.SampleTime()
-	if tst > ost {
+	if tst < ost {
 		// Receiver was sampled more recently (sorts higher)
 		return 1
 	}
-	if tst < ost {
+	if tst > ost {
 		// Receiver was sampled less recently (sorts lower)
 		return -1
 	}
