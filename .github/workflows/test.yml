@@ -39,7 +39,9 @@ jobs:
       # Install build-essential on ARM linux runners if CGO is to be enabled
       - name: Install build-essential (ARM linux)
         if: matrix.runs-on == 'arm-4core-linux' && matrix.cgo_enabled == '1'
-        run: sudo apt install -y build-essential
+        run: |-
+          sudo apt update
+          sudo apt install -y build-essential
 
       - name: go test
         shell: bash
