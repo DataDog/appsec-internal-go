@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/DataDog/appsec-internal-go/apisec"
 	"github.com/DataDog/appsec-internal-go/log"
 )
 
@@ -20,8 +21,6 @@ import (
 const (
 	// EnvAPISecEnabled is the env var used to enable API Security
 	EnvAPISecEnabled = "DD_API_SECURITY_ENABLED"
-	// EnvAPISecSampleRate is the env var used to set the sampling rate of API Security schema extraction
-	EnvAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
 	// EnvObfuscatorKey is the env var used to provide the WAF key obfuscation regexp
 	EnvObfuscatorKey = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
 	// EnvObfuscatorValue is the env var used to provide the WAF value obfuscation regexp
@@ -50,12 +49,11 @@ const (
 	DefaultTraceRate uint = 100 // up to 100 appsec traces/s
 )
 
-// APISecConfig holds the configuration for API Security schemas reporting
-// It is used to enabled/disable the feature as well as to configure the rate
-// at which schemas get reported,
+// APISecConfig holds the configuration for API Security schemas reporting.
+// It is used to enabled/disable the feature.
 type APISecConfig struct {
-	Enabled    bool
-	SampleRate float64
+	Enabled bool
+	Sampler apisec.Sampler
 }
 
 // ObfuscatorConfig wraps the key and value regexp to be passed to the WAF to perform obfuscation.
@@ -64,27 +62,26 @@ type ObfuscatorConfig struct {
 	ValueRegex string
 }
 
+type APISecOption func(*APISecConfig)
+
 // NewAPISecConfig creates and returns a new API Security configuration by reading the env
-func NewAPISecConfig() APISecConfig {
-	return APISecConfig{
-		Enabled:    boolEnv(EnvAPISecEnabled, true),
-		SampleRate: readAPISecuritySampleRate(),
+func NewAPISecConfig(opts ...APISecOption) APISecConfig {
+	cfg := APISecConfig{
+		Enabled: boolEnv(EnvAPISecEnabled, true),
+		Sampler: apisec.NewSampler(),
 	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return cfg
 }
-func readAPISecuritySampleRate() float64 {
-	value := os.Getenv(EnvAPISecSampleRate)
-	rate, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		logEnvVarParsingError(EnvAPISecSampleRate, value, err, DefaultAPISecSampleRate)
-		return DefaultAPISecSampleRate
+
+// WithAPISecSampler sets the sampler for the API Security configuration. This is useful for testing
+// purposes.
+func WithAPISecSampler(sampler apisec.Sampler) APISecOption {
+	return func(c *APISecConfig) {
+		c.Sampler = sampler
 	}
-	// Clamp the value so that 0.0 <= rate <= 1.0
-	if rate < 0. {
-		rate = 0.
-	} else if rate > 1. {
-		rate = 1.
-	}
-	return rate
 }
 
 // RASPEnabled returns true if RASP functionalities are enabled through the env, or if DD_APPSEC_RASP_ENABLED

@@ -15,72 +15,44 @@ import (
 
 func TestAPISecConfig(t *testing.T) {
 	for _, tc := range []struct {
-		name          string
-		enabledVar    string
-		sampleRateVar string
-		enabled       bool
-		sampleRate    float64
+		name       string
+		enabledVar string
+		enabled    bool
 	}{
 		{
 			name:       "disabled",
 			enabledVar: "false",
-			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "disabled",
 			enabledVar: "0",
-			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
-			name:       "enabled",
-			enabled:    true,
-			sampleRate: DefaultAPISecSampleRate,
+			name:    "enabled",
+			enabled: true,
 		},
 		{
 			name:       "enabled",
 			enabledVar: "true",
 			enabled:    true,
-			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "enabled",
 			enabledVar: "1",
 			enabled:    true,
-			sampleRate: DefaultAPISecSampleRate,
 		},
 		{
 			name:       "enabled",
 			enabledVar: "weirdvalue",
 			enabled:    true,
-			sampleRate: DefaultAPISecSampleRate,
-		},
-		{
-			name:          "sampleRate 1.0",
-			sampleRateVar: "1.0",
-			enabled:       true,
-			sampleRate:    1.,
-		},
-		{
-			name:          "sampleRate 50.0",
-			sampleRateVar: "50.0",
-			enabled:       true,
-			sampleRate:    1.,
-		},
-		{
-			name:          "sampleRate -50.0",
-			sampleRateVar: "-50.0",
-			enabled:       true,
-			sampleRate:    0.,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if len(tc.enabledVar) > 0 {
 				t.Setenv(EnvAPISecEnabled, tc.enabledVar)
 			}
-			t.Setenv(EnvAPISecSampleRate, tc.sampleRateVar)
 			cfg := NewAPISecConfig()
 			require.Equal(t, tc.enabled, cfg.Enabled)
-			require.Equal(t, tc.sampleRate, cfg.SampleRate)
 		})
 	}
 }
