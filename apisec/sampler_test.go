@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/DataDog/appsec-internal-go/apisec/internal/config"
+	"github.com/DataDog/appsec-internal-go/apisec/internal/timed/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -77,21 +78,24 @@ func TestSampler(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
-
 			assert.Positive(t, tc.SimulatedTPS)
 			assert.GreaterOrEqual(t, tc.ExpectedKeepRate, 0.0)
 			assert.GreaterOrEqual(t, 1.0, tc.ExpectedKeepRate)
 
+			const goroutineCount = 10 // Fixed to ensure consistent keep rate...
+			ctx, cancel := context.WithCancel(ctx)
+			clock := testutil.NewFakeClock(ctx, t, goroutineCount)
+			defer func() {
+				cancel()
+				clock.WaitForTick()
+			}()
+
 			var (
-				goroutineCount = max(2, runtime.GOMAXPROCS(0))
-				clock          = newFakeClock(ctx, t, goroutineCount)
-				subject        = newSampler(30*time.Second, clock.Unix)
-				sb             sync.WaitGroup // Start barrier
-				wg             sync.WaitGroup // Completion barrier
-				kept           atomic.Uint64
-				dropped        atomic.Uint64
+				subject = newSampler(30*time.Second, clock.Unix)
+				sb      sync.WaitGroup // Start barrier
+				wg      sync.WaitGroup // Completion barrier
+				kept    atomic.Uint64
+				dropped atomic.Uint64
 			)
 			sb.Add(1 + goroutineCount) // All child goroutines + this one...
 			wg.Add(goroutineCount)
@@ -204,70 +208,6 @@ func BenchmarkSampler(b *testing.B) {
 				})
 			}
 		})
-	}
-}
-
-type fakeClock struct {
-	t        testing.TB
-	goCount  int
-	now      int64
-	needTick atomic.Bool
-	wg       sync.WaitGroup
-	cnd      sync.Cond
-}
-
-func newFakeClock(ctx context.Context, t testing.TB, goroutineCount int) *fakeClock {
-	res := &fakeClock{
-		t:       t,
-		goCount: goroutineCount,
-		now:     time.Now().Unix(),
-		cnd:     *sync.NewCond(&sync.Mutex{}),
-	}
-	res.wg.Add(goroutineCount)
-	go res.tick(ctx)
-	return res
-}
-
-func (c *fakeClock) Unix() int64 {
-	return c.now
-}
-
-func (c *fakeClock) WaitForTick() {
-	c.cnd.L.Lock()
-
-	c.needTick.CompareAndSwap(false, true)
-	curTime := c.now
-
-	c.wg.Done()
-	for curTime == c.now && c.now > 0 {
-		c.cnd.Wait()
-	}
-	c.cnd.L.Unlock()
-}
-
-func (c *fakeClock) tick(ctx context.Context) {
-	c.t.Log("Start ticker!")
-	for {
-		select {
-		case <-ctx.Done():
-			// Context is cancelled, stop the ticker...
-			c.cnd.L.Lock()
-			c.now = 0
-			c.cnd.L.Unlock()
-			c.t.Log("Stop ticker!")
-			return
-		default:
-			if !c.needTick.Load() {
-				continue
-			}
-			c.wg.Wait()
-			c.cnd.L.Lock()
-			c.now++
-			c.needTick.Store(false)
-			c.cnd.Broadcast()
-			c.wg.Add(c.goCount)
-			c.cnd.L.Unlock()
-		}
 	}
 }
 

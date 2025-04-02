@@ -6,17 +6,18 @@
 package timed
 
 import (
+	"context"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/DataDog/appsec-internal-go/apisec/internal/config"
+	"github.com/DataDog/appsec-internal-go/apisec/internal/timed/testutil"
 	"github.com/stretchr/testify/require"
 )
 
-func TestSet(t *testing.T) {
+func TestLRU(t *testing.T) {
 	t.Run("New", func(t *testing.T) {
 		require.PanicsWithError(t, "NewSet: interval must be at least 1s, got 0s", func() { NewSet(0, UnixTime) })
 		require.PanicsWithError(t, "NewSet: interval must be at least 1s, got 10ms", func() { NewSet(10*time.Millisecond, UnixTime) })
@@ -54,20 +55,23 @@ func TestSet(t *testing.T) {
 	})
 
 	t.Run("rebuild", func(t *testing.T) {
-		var fakeTime atomic.Int64
-		fakeTime.Store(time.Now().Unix())
-		fakeClock := func() int64 { return fakeTime.Load() }
+		goCount := runtime.GOMAXPROCS(0) * 10
+		ctx, cancel := context.WithCancel(context.Background())
+		clock := testutil.NewFakeClock(ctx, t, goCount)
+		defer func() {
+			cancel()
+			clock.WaitUntilDone()
+		}()
 
-		subject := NewSet(config.Interval, fakeClock)
+		subject := NewSet(config.Interval, clock.Unix)
 
 		var (
-			goCount       = runtime.GOMAXPROCS(0) * 10
 			startBarrier  sync.WaitGroup
 			finishBarrier sync.WaitGroup
 		)
 		startBarrier.Add(goCount + 1)
 		finishBarrier.Add(goCount)
-		for g := range goCount {
+		for range goCount {
 			go func() {
 				defer finishBarrier.Done()
 				startBarrier.Done()
@@ -75,9 +79,7 @@ func TestSet(t *testing.T) {
 
 				for key := range uint64(config.MaxItemCount * 4) {
 					_ = subject.Hit(key)
-					if g == 0 {
-						fakeTime.Add(1)
-					}
+					clock.WaitForTick()
 				}
 			}()
 		}
