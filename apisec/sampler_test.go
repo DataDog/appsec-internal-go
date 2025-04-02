@@ -77,21 +77,24 @@ func TestSampler(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
-
 			assert.Positive(t, tc.SimulatedTPS)
 			assert.GreaterOrEqual(t, tc.ExpectedKeepRate, 0.0)
 			assert.GreaterOrEqual(t, 1.0, tc.ExpectedKeepRate)
 
+			const goroutineCount = 10 // Fixed to ensure consistent keep rate...
+			ctx, cancel := context.WithCancel(ctx)
+			clock := newFakeClock(ctx, t, goroutineCount)
+			defer func() {
+				cancel()
+				clock.WaitForTick()
+			}()
+
 			var (
-				goroutineCount = max(2, runtime.GOMAXPROCS(0))
-				clock          = newFakeClock(ctx, t, goroutineCount)
-				subject        = newSampler(30*time.Second, clock.Unix)
-				sb             sync.WaitGroup // Start barrier
-				wg             sync.WaitGroup // Completion barrier
-				kept           atomic.Uint64
-				dropped        atomic.Uint64
+				subject = newSampler(30*time.Second, clock.Unix)
+				sb      sync.WaitGroup // Start barrier
+				wg      sync.WaitGroup // Completion barrier
+				kept    atomic.Uint64
+				dropped atomic.Uint64
 			)
 			sb.Add(1 + goroutineCount) // All child goroutines + this one...
 			wg.Add(goroutineCount)
@@ -209,6 +212,7 @@ func BenchmarkSampler(b *testing.B) {
 
 type fakeClock struct {
 	t        testing.TB
+	closed   chan struct{}
 	goCount  int
 	now      int64
 	needTick atomic.Bool
@@ -219,6 +223,7 @@ type fakeClock struct {
 func newFakeClock(ctx context.Context, t testing.TB, goroutineCount int) *fakeClock {
 	res := &fakeClock{
 		t:       t,
+		closed:  make(chan struct{}),
 		goCount: goroutineCount,
 		now:     time.Now().Unix(),
 		cnd:     *sync.NewCond(&sync.Mutex{}),
@@ -245,6 +250,10 @@ func (c *fakeClock) WaitForTick() {
 	c.cnd.L.Unlock()
 }
 
+func (c *fakeClock) WaitUntilDone() {
+	<-c.closed
+}
+
 func (c *fakeClock) tick(ctx context.Context) {
 	c.t.Log("Start ticker!")
 	for {
@@ -255,6 +264,7 @@ func (c *fakeClock) tick(ctx context.Context) {
 			c.now = 0
 			c.cnd.L.Unlock()
 			c.t.Log("Stop ticker!")
+			close(c.closed)
 			return
 		default:
 			if !c.needTick.Load() {
