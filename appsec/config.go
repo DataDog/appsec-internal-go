@@ -21,6 +21,9 @@ import (
 const (
 	// EnvAPISecEnabled is the env var used to enable API Security
 	EnvAPISecEnabled = "DD_API_SECURITY_ENABLED"
+	// EnvAPISecSampleRate is the env var used to set the sampling rate of API Security schema extraction.
+	// Deprecated: a new [APISecConfig.Sampler] is now used instead of this.
+	EnvAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
 	// EnvObfuscatorKey is the env var used to provide the WAF key obfuscation regexp
 	EnvObfuscatorKey = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
 	// EnvObfuscatorValue is the env var used to provide the WAF value obfuscation regexp
@@ -52,8 +55,10 @@ const (
 // APISecConfig holds the configuration for API Security schemas reporting.
 // It is used to enabled/disable the feature.
 type APISecConfig struct {
-	Enabled bool
 	Sampler apisec.Sampler
+	Enabled bool
+	// Deprecated: use the new [APISecConfig.Sampler] instead.
+	SampleRate float64
 }
 
 // ObfuscatorConfig wraps the key and value regexp to be passed to the WAF to perform obfuscation.
@@ -67,13 +72,34 @@ type APISecOption func(*APISecConfig)
 // NewAPISecConfig creates and returns a new API Security configuration by reading the env
 func NewAPISecConfig(opts ...APISecOption) APISecConfig {
 	cfg := APISecConfig{
-		Enabled: boolEnv(EnvAPISecEnabled, true),
-		Sampler: apisec.NewSampler(),
+		Enabled:    boolEnv(EnvAPISecEnabled, true),
+		Sampler:    apisec.NewSampler(),
+		SampleRate: readAPISecuritySampleRate(),
 	}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 	return cfg
+}
+
+func readAPISecuritySampleRate() float64 {
+	value := os.Getenv(EnvAPISecSampleRate)
+	if value == "" {
+		return DefaultAPISecSampleRate
+	}
+
+	rate, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		logEnvVarParsingError(EnvAPISecSampleRate, value, err, DefaultAPISecSampleRate)
+		return DefaultAPISecSampleRate
+	}
+	// Clamp the value so that 0.0 <= rate <= 1.0
+	if rate < 0. {
+		rate = 0.
+	} else if rate > 1. {
+		rate = 1.
+	}
+	return rate
 }
 
 // WithAPISecSampler sets the sampler for the API Security configuration. This is useful for testing
