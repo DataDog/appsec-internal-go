@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/DataDog/appsec-internal-go/apisec/internal/config"
+	"github.com/DataDog/appsec-internal-go/apisec/internal/timed/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -83,7 +84,7 @@ func TestSampler(t *testing.T) {
 
 			const goroutineCount = 10 // Fixed to ensure consistent keep rate...
 			ctx, cancel := context.WithCancel(ctx)
-			clock := newFakeClock(ctx, t, goroutineCount)
+			clock := testutil.NewFakeClock(ctx, t, goroutineCount)
 			defer func() {
 				cancel()
 				clock.WaitForTick()
@@ -207,77 +208,6 @@ func BenchmarkSampler(b *testing.B) {
 				})
 			}
 		})
-	}
-}
-
-type fakeClock struct {
-	t        testing.TB
-	closed   chan struct{}
-	goCount  int
-	now      int64
-	needTick atomic.Bool
-	wg       sync.WaitGroup
-	cnd      sync.Cond
-}
-
-func newFakeClock(ctx context.Context, t testing.TB, goroutineCount int) *fakeClock {
-	res := &fakeClock{
-		t:       t,
-		closed:  make(chan struct{}),
-		goCount: goroutineCount,
-		now:     time.Now().Unix(),
-		cnd:     *sync.NewCond(&sync.Mutex{}),
-	}
-	res.wg.Add(goroutineCount)
-	go res.tick(ctx)
-	return res
-}
-
-func (c *fakeClock) Unix() int64 {
-	return c.now
-}
-
-func (c *fakeClock) WaitForTick() {
-	c.cnd.L.Lock()
-
-	c.needTick.CompareAndSwap(false, true)
-	curTime := c.now
-
-	c.wg.Done()
-	for curTime == c.now && c.now > 0 {
-		c.cnd.Wait()
-	}
-	c.cnd.L.Unlock()
-}
-
-func (c *fakeClock) WaitUntilDone() {
-	<-c.closed
-}
-
-func (c *fakeClock) tick(ctx context.Context) {
-	c.t.Log("Start ticker!")
-	for {
-		select {
-		case <-ctx.Done():
-			// Context is cancelled, stop the ticker...
-			c.cnd.L.Lock()
-			c.now = 0
-			c.cnd.L.Unlock()
-			c.t.Log("Stop ticker!")
-			close(c.closed)
-			return
-		default:
-			if !c.needTick.Load() {
-				continue
-			}
-			c.wg.Wait()
-			c.cnd.L.Lock()
-			c.now++
-			c.needTick.Store(false)
-			c.cnd.Broadcast()
-			c.wg.Add(c.goCount)
-			c.cnd.L.Unlock()
-		}
 	}
 }
 
