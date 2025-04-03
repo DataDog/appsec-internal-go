@@ -19,8 +19,8 @@ import (
 )
 
 func TestLRU(t *testing.T) {
-	t.Run("NewSet", func(t *testing.T) {
-		require.PanicsWithError(t, "NewSet: interval must be <= 1193046h28m15s, but was 1193046h28m16s", func() { NewSet(time.Second*(math.MaxUint32+1), UnixTime) })
+	t.Run("NewLRU", func(t *testing.T) {
+		require.PanicsWithError(t, "NewLRU: interval must be <= 1193046h28m15s, but was 1193046h28m16s", func() { NewLRU(time.Second*(math.MaxUint32+1), UnixTime) })
 	})
 
 	t.Run("Hit", func(t *testing.T) {
@@ -28,7 +28,7 @@ func TestLRU(t *testing.T) {
 		fakeClock := func() int64 { return fakeTime }
 
 		const sampleIntervalSeconds = 30
-		subject := NewSet(sampleIntervalSeconds*time.Second, fakeClock)
+		subject := NewLRU(sampleIntervalSeconds*time.Second, fakeClock)
 
 		require.True(t, subject.Hit(1337))
 		for range sampleIntervalSeconds {
@@ -63,7 +63,7 @@ func TestLRU(t *testing.T) {
 			clock.WaitUntilDone()
 		}()
 
-		subject := NewSet(30*time.Second, clock.Unix)
+		subject := NewLRU(30*time.Second, clock.Unix)
 
 		var (
 			startBarrier  sync.WaitGroup

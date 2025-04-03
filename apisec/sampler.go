@@ -40,7 +40,7 @@ func NewSamplerWithInterval(interval time.Duration) Sampler {
 // newSampler allows creating a new [*Sampler] with custom clock function,
 // which is useful for testing.
 func newSampler(interval time.Duration, clock clockFunc) Sampler {
-	return (*timedSetSampler)(timed.NewSet(interval, clock))
+	return (*timedSetSampler)(timed.NewLRU(interval, clock))
 }
 
 // DecisionFor makes a sampling decision for the provided [SamplingKey]. If it
