@@ -36,12 +36,18 @@ const (
 	EnvRules = "DD_APPSEC_RULES"
 	// EnvRASPEnabled is the env var used to enable/disable RASP functionalities for ASM
 	EnvRASPEnabled = "DD_APPSEC_RASP_ENABLED"
+
+	// envAPISecSampleDelay is the env var used to set the delay for the API Security sampler in system tests.
+	// It is not indended to be set by users.
+	envAPISecSampleDelay = "DD_API_SECURITY_SAMPLE_DELAY"
 )
 
 // Configuration constants and default values
 const (
 	// DefaultAPISecSampleRate is the default rate at which API Security schemas are extracted from requests
 	DefaultAPISecSampleRate = .1
+	// DefaultAPISecSampleInterval is the default interval between two samples being taken.
+	DefaultAPISecSampleInterval = 30 * time.Second
 	// DefaultObfuscatorKeyRegex is the default regexp used to obfuscate keys
 	DefaultObfuscatorKeyRegex = `(?i)pass|pw(?:or)?d|secret|(?:api|private|public|access)[_-]?key|token|consumer[_-]?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization|jsessionid|phpsessid|asp\.net[_-]sessionid|sid|jwt`
 	// DefaultObfuscatorValueRegex is the default regexp used to obfuscate values
@@ -73,7 +79,7 @@ type APISecOption func(*APISecConfig)
 func NewAPISecConfig(opts ...APISecOption) APISecConfig {
 	cfg := APISecConfig{
 		Enabled:    boolEnv(EnvAPISecEnabled, true),
-		Sampler:    apisec.NewSampler(),
+		Sampler:    apisec.NewSamplerWithInterval(durationEnv(envAPISecSampleDelay, "s", DefaultAPISecSampleInterval)),
 		SampleRate: readAPISecuritySampleRate(),
 	}
 	for _, opt := range opts {
@@ -223,4 +229,17 @@ func boolEnv(key string, def bool) bool {
 		return def
 	}
 	return v
+}
+
+func durationEnv(key string, unit string, def time.Duration) time.Duration {
+	strVal, ok := os.LookupEnv(key)
+	if !ok {
+		return def
+	}
+	val, err := time.ParseDuration(strVal + unit)
+	if err != nil {
+		logEnvVarParsingError(key, strVal, err, def)
+		return def
+	}
+	return val
 }

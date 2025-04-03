@@ -238,3 +238,37 @@ func TestRASPEnablement(t *testing.T) {
 		require.True(t, RASPEnabled())
 	})
 }
+
+func TestDurationEnv(t *testing.T) {
+	const varName = "DD_TEST_VARIABLE_DURATION"
+
+	type testCase struct {
+		EnvVal   string
+		EnvUnit  string
+		Expected time.Duration
+	}
+	testCases := map[string]testCase{
+		"blank": {
+			EnvVal:   "",
+			EnvUnit:  "s",
+			Expected: 1337,
+		},
+		"1m": {
+			EnvVal:   "1",
+			EnvUnit:  "m",
+			Expected: time.Minute,
+		},
+		"invalid": {
+			EnvVal:   "invalid",
+			EnvUnit:  "s",
+			Expected: 1337,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(varName, tc.EnvVal)
+			require.Equal(t, tc.Expected, durationEnv(varName, tc.EnvUnit, 1337))
+		})
+	}
+}

@@ -7,11 +7,13 @@ package timed
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"sync/atomic"
 	"time"
 
 	"github.com/DataDog/appsec-internal-go/apisec/internal/config"
+	"github.com/DataDog/appsec-internal-go/log"
 )
 
 // capacity is the maximum number of items that may be temporarily present in a
@@ -44,18 +46,19 @@ type LRU struct {
 	rebuilding atomic.Bool
 }
 
-// NewSet initializes a new, empty [LRU] with the given interval and clock
-// function. The provided interval must be at least 1 second, and may not exceed
-// [config.Interval].
+// NewLRU initializes a new, empty [LRU] with the given interval and clock
+// function. A warning will be logged if it is set below 1 second. Panics if
+// the interval is more than [math.MaxUint32] seconds, as this value cannot be
+// used internally.
 //
 // Note: timestamps are stored at second resolution, so the interval will be
 // rounded down to the nearest second.
-func NewSet(interval time.Duration, clock ClockFunc) *LRU {
+func NewLRU(interval time.Duration, clock ClockFunc) *LRU {
 	if interval < time.Second {
-		panic(fmt.Errorf("NewSet: interval must be at least 1s, got %v", interval))
+		log.Warn("NewLRU: interval is less than one second; this should not be attempted in production (value: %s)", interval)
 	}
-	if interval > config.Interval {
-		panic(fmt.Errorf("NewSet: interval must not exceed %s, got %v", config.Interval, interval))
+	if interval > time.Second*math.MaxUint32 {
+		panic(fmt.Errorf("NewLRU: interval must be <= %s, but was %s", time.Second*math.MaxUint32, interval))
 	}
 
 	intervalSeconds := uint32(interval.Seconds())

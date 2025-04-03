@@ -5,12 +5,7 @@
 
 package config
 
-import "time"
-
 const (
 	// MaxItemCount is the maximum amount of items to keep in a timed set.
 	MaxItemCount = 4_096
-
-	// Interval is the interval between two samples being taken.
-	Interval = 30 * time.Second
 )
