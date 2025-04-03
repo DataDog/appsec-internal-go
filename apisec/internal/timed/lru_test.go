@@ -7,6 +7,7 @@ package timed
 
 import (
 	"context"
+	"math"
 	"runtime"
 	"sync"
 	"testing"
@@ -18,20 +19,19 @@ import (
 )
 
 func TestLRU(t *testing.T) {
-	t.Run("New", func(t *testing.T) {
-		require.PanicsWithError(t, "NewSet: interval must be at least 1s, got 0s", func() { NewSet(0, UnixTime) })
-		require.PanicsWithError(t, "NewSet: interval must be at least 1s, got 10ms", func() { NewSet(10*time.Millisecond, UnixTime) })
-		require.PanicsWithError(t, "NewSet: interval must not exceed 30s, got 1m0s", func() { NewSet(time.Minute, UnixTime) })
+	t.Run("NewSet", func(t *testing.T) {
+		require.PanicsWithError(t, "NewSet: interval must be <= 1193046h28m15s, but was 1193046h28m16s", func() { NewSet(time.Second*(math.MaxUint32+1), UnixTime) })
 	})
 
 	t.Run("Hit", func(t *testing.T) {
 		fakeTime := time.Now().Unix()
 		fakeClock := func() int64 { return fakeTime }
 
-		subject := NewSet(config.Interval, fakeClock)
+		const sampleIntervalSeconds = 30
+		subject := NewSet(sampleIntervalSeconds*time.Second, fakeClock)
 
 		require.True(t, subject.Hit(1337))
-		for range config.Interval / time.Second {
+		for range sampleIntervalSeconds {
 			require.False(t, subject.Hit(1337))
 			fakeTime++
 		}
@@ -63,7 +63,7 @@ func TestLRU(t *testing.T) {
 			clock.WaitUntilDone()
 		}()
 
-		subject := NewSet(config.Interval, clock.Unix)
+		subject := NewSet(30*time.Second, clock.Unix)
 
 		var (
 			startBarrier  sync.WaitGroup

@@ -10,7 +10,6 @@ import (
 	"hash/fnv"
 	"time"
 
-	"github.com/DataDog/appsec-internal-go/apisec/internal/config"
 	"github.com/DataDog/appsec-internal-go/apisec/internal/timed"
 )
 
@@ -33,14 +32,7 @@ type (
 	clockFunc = func() int64
 )
 
-// NewSampler returns a new [*Sampler] with the default clock function based on
-// [time.Now].
-func NewSampler() Sampler {
-	return NewSamplerWithInterval(config.Interval)
-}
-
-// NewSamplerWithInterval returns a new [*Sampler] with the specified interval
-// instead of the default of 30 seconds.
+// NewSamplerWithInterval returns a new [*Sampler] with the specified interval.
 func NewSamplerWithInterval(interval time.Duration) Sampler {
 	return newSampler(interval, timed.UnixTime)
 }
