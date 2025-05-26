@@ -5,16 +5,10 @@
 
 package appsec
 
-import (
-	_ "embed" // Blank import comment for golint compliance
-	"unsafe"
-)
+import _ "embed" // Blank import comment for golint compliance
 
-var (
-	//go:embed rules.json
-	staticRecommendedRules []byte
-
-	// StaticRecommendedRules holds the recommended AppSec security rules (v1.14.2)
-	// Source: https://github.com/DataDog/appsec-event-rules/blob/1.14.2/build/recommended.json
-	StaticRecommendedRules = unsafe.String(&staticRecommendedRules[0], len(staticRecommendedRules))
-)
+// StaticRecommendedRules holds the recommended AppSec security rules (v1.14.2)
+// Source: https://github.com/DataDog/appsec-event-rules/blob/1.14.2/build/recommended.json
+//
+//go:embed rules.json
+var StaticRecommendedRules string
