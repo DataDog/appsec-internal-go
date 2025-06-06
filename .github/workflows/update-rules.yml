@@ -18,6 +18,9 @@ jobs:
         with:
           app-id: ${{ vars.DD_K9_LIBRARY_GO_APP_ID }}
           private-key: ${{ secrets.DD_K9_LIBRARY_GO_APP_PRIVATE_KEY }}
+          owner: DataDog
+          repositories: appsec-event-rules
+          permission-contents: read
       - name: Upgrade AppSec Rules
         run: ./_tools/rules-updater/update.sh latest
         env:
