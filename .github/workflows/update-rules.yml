@@ -64,6 +64,12 @@ jobs:
         run: |-
           git apply ${{ runner.temp }}/repo.patch
           echo "version=$(jq -r '.metadata.rules_version' < ./appsec/rules.json)" >> $GITHUB_OUTPUT
+      - name: Configure git identity
+        run: |-
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "$(gh api "/users/${APP_SLUG}[bot]" | jq .id)+${APP_SLUG}[bot]@users.noreply.github.com"
+        env:
+          APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
       - name: Push Changes
         run: |-
           git add .
