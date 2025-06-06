@@ -70,6 +70,7 @@ jobs:
           git config user.email "$(gh api "/users/${APP_SLUG}[bot]" | jq .id)+${APP_SLUG}[bot]@users.noreply.github.com"
         env:
           APP_SLUG: ${{ steps.generate-token.outputs.app-slug }}
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Push Changes
         run: |-
           git add .
