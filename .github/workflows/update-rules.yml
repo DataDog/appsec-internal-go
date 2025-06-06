@@ -80,7 +80,6 @@ jobs:
         run: |-
           gh pr create --title "Update embedded AppSec Rules to ${{ steps.apply.outputs.version }}" \
             --body "Automatically created by [GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})." \
-            --base "main" --head "automation/update-appsec-rules" \
-            --reviewer "@DataDog/asm-go"
+            --base "main" --head "automation/update-appsec-rules"
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
