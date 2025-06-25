@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/DataDog/appsec-internal-go/apisec/internal/timed"
+	"github.com/DataDog/appsec-internal-go/limiter"
 )
 
 type (
@@ -19,6 +20,12 @@ type (
 	}
 
 	timedSetSampler timed.LRU
+
+	proxySampler struct {
+		limiter limiter.Limiter
+	}
+
+	nullSampler struct{}
 
 	SamplingKey struct {
 		// Method is the value of the http.method span tag
@@ -31,6 +38,20 @@ type (
 
 	clockFunc = func() int64
 )
+
+// NewProxySampler creates a new sampler suitable for proxy environments where the sampling decision
+// is not based on the request's properties, but on a rate.
+func NewProxySampler(rate int, interval time.Duration) Sampler {
+	if rate <= 0 {
+		return &nullSampler{}
+	}
+	r := int64(rate)
+	l := limiter.NewTokenTickerWithInterval(r, r, interval)
+	l.Start()
+	return &proxySampler{
+		limiter: l,
+	}
+}
 
 // NewSamplerWithInterval returns a new [*Sampler] with the specified interval.
 func NewSamplerWithInterval(interval time.Duration) Sampler {
@@ -51,6 +72,14 @@ func newSampler(interval time.Duration, clock clockFunc) Sampler {
 func (s *timedSetSampler) DecisionFor(key SamplingKey) bool {
 	keyHash := key.hash()
 	return (*timed.LRU)(s).Hit(keyHash)
+}
+
+func (s *proxySampler) DecisionFor(_ SamplingKey) bool {
+	return s.limiter.Allow()
+}
+
+func (s *nullSampler) DecisionFor(_ SamplingKey) bool {
+	return false
 }
 
 // hash returns a hash of the key. Given the same seed, it always produces the

@@ -24,6 +24,8 @@ const (
 	// EnvAPISecSampleRate is the env var used to set the sampling rate of API Security schema extraction.
 	// Deprecated: a new [APISecConfig.Sampler] is now used instead of this.
 	EnvAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
+	// EnvAPISecProxySampleRate is the env var used to set the sampling rate of API Security schema extraction for proxies.
+	EnvAPISecProxySampleRate = "DD_API_SECURITY_PROXY_SAMPLE_RATE"
 	// EnvObfuscatorKey is the env var used to provide the WAF key obfuscation regexp
 	EnvObfuscatorKey = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
 	// EnvObfuscatorValue is the env var used to provide the WAF value obfuscation regexp
@@ -48,6 +50,10 @@ const (
 	DefaultAPISecSampleRate = .1
 	// DefaultAPISecSampleInterval is the default interval between two samples being taken.
 	DefaultAPISecSampleInterval = 30 * time.Second
+	// DefaultAPISecProxySampleRate is the default rate (schemas per minute) at which API Security schemas are extracted from requests
+	DefaultAPISecProxySampleRate = 300
+	// DefaultAPISecProxySampleInterval is the default time window for the API Security proxy sampler rate limiter.
+	DefaultAPISecProxySampleInterval = time.Minute
 	// DefaultObfuscatorKeyRegex is the default regexp used to obfuscate keys
 	DefaultObfuscatorKeyRegex = `(?i)pass|pw(?:or)?d|secret|(?:api|private|public|access)[_-]?key|token|consumer[_-]?(?:id|key|secret)|sign(?:ed|ature)|bearer|authorization|jsessionid|phpsessid|asp\.net[_-]sessionid|sid|jwt`
 	// DefaultObfuscatorValueRegex is the default regexp used to obfuscate values
@@ -63,6 +69,7 @@ const (
 type APISecConfig struct {
 	Sampler apisec.Sampler
 	Enabled bool
+	IsProxy bool
 	// Deprecated: use the new [APISecConfig.Sampler] instead.
 	SampleRate float64
 }
@@ -79,12 +86,18 @@ type APISecOption func(*APISecConfig)
 func NewAPISecConfig(opts ...APISecOption) APISecConfig {
 	cfg := APISecConfig{
 		Enabled:    boolEnv(EnvAPISecEnabled, true),
-		Sampler:    apisec.NewSamplerWithInterval(durationEnv(envAPISecSampleDelay, "s", DefaultAPISecSampleInterval)),
 		SampleRate: readAPISecuritySampleRate(),
 	}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+	if cfg.IsProxy {
+		rate := intEnv(EnvAPISecProxySampleRate, DefaultAPISecProxySampleRate)
+		cfg.Sampler = apisec.NewProxySampler(rate, DefaultAPISecProxySampleInterval)
+	} else {
+		cfg.Sampler = apisec.NewSamplerWithInterval(durationEnv(envAPISecSampleDelay, "s", DefaultAPISecSampleInterval))
+	}
+
 	return cfg
 }
 
@@ -113,6 +126,13 @@ func readAPISecuritySampleRate() float64 {
 func WithAPISecSampler(sampler apisec.Sampler) APISecOption {
 	return func(c *APISecConfig) {
 		c.Sampler = sampler
+	}
+}
+
+// WithProxy configures API Security for a proxy environment.
+func WithProxy() APISecOption {
+	return func(c *APISecConfig) {
+		c.IsProxy = true
 	}
 }
 
@@ -237,6 +257,19 @@ func durationEnv(key string, unit string, def time.Duration) time.Duration {
 		return def
 	}
 	val, err := time.ParseDuration(strVal + unit)
+	if err != nil {
+		logEnvVarParsingError(key, strVal, err, def)
+		return def
+	}
+	return val
+}
+
+func intEnv(key string, def int) int {
+	strVal, ok := os.LookupEnv(key)
+	if !ok {
+		return def
+	}
+	val, err := strconv.Atoi(strVal)
 	if err != nil {
 		logEnvVarParsingError(key, strVal, err, def)
 		return def
