@@ -91,6 +91,11 @@ func NewAPISecConfig(opts ...APISecOption) APISecConfig {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+
+	if cfg.Sampler != nil {
+		return cfg
+	}
+
 	if cfg.IsProxy {
 		rate := intEnv(EnvAPISecProxySampleRate, DefaultAPISecProxySampleRate)
 		cfg.Sampler = apisec.NewProxySampler(rate, DefaultAPISecProxySampleInterval)
