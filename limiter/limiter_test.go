@@ -349,3 +349,47 @@ func (t *TestTicker) tick(delta time.Duration) {
 func (t *TestTicker) Allow() bool {
 	return t.t.Allow()
 }
+
+func newTestTickerWithInterval(tokens, maxTokens int64, interval time.Duration) *TestTicker {
+	return &TestTicker{
+		C: make(chan time.Time),
+		t: NewTokenTickerWithInterval(tokens, maxTokens, interval),
+	}
+}
+
+func TestLimiterWithInterval(t *testing.T) {
+	startTime := time.Now()
+	t.Run("60-per-minute-rate", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+
+		l := newTestTickerWithInterval(1, 60, time.Minute) // 60 tokens per minute, so 1 per second
+		l.start(startTime)
+		defer l.stop()
+		require.True(t, l.Allow(), "First call should be allowed")
+		require.False(t, l.Allow(), "Second call should be disallowed")
+
+		l.tick(500 * time.Millisecond)
+		require.False(t, l.Allow(), "A call after 0.5s should be disallowed")
+
+		l.tick(500 * time.Millisecond) // Total 1 second passed
+		require.True(t, l.Allow(), "A call after 1s should be allowed")
+		require.False(t, l.Allow(), "Another call should be disallowed")
+	})
+
+	t.Run("1-per-100ms-rate", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+
+		l := newTestTickerWithInterval(1, 1, 100*time.Millisecond) // 1 token per 100ms
+		l.start(startTime)
+		defer l.stop()
+		require.True(t, l.Allow(), "First call should be allowed")
+		require.False(t, l.Allow(), "Second call should be disallowed")
+
+		l.tick(50 * time.Millisecond)
+		require.False(t, l.Allow(), "A call after 50ms should be disallowed")
+
+		l.tick(50 * time.Millisecond) // Total 100ms passed
+		require.True(t, l.Allow(), "A call after 100ms should be allowed")
+		require.False(t, l.Allow(), "Another call should be disallowed")
+	})
+}
