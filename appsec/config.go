@@ -25,6 +25,7 @@ const (
 	// Deprecated: a new [APISecConfig.Sampler] is now used instead of this.
 	EnvAPISecSampleRate = "DD_API_SECURITY_REQUEST_SAMPLE_RATE"
 	// EnvAPISecProxySampleRate is the env var used to set the sampling rate of API Security schema extraction for proxies.
+	// The value represents the number of schemas extracted per minute (samples per minute).
 	EnvAPISecProxySampleRate = "DD_API_SECURITY_PROXY_SAMPLE_RATE"
 	// EnvObfuscatorKey is the env var used to provide the WAF key obfuscation regexp
 	EnvObfuscatorKey = "DD_APPSEC_OBFUSCATION_PARAMETER_KEY_REGEXP"
