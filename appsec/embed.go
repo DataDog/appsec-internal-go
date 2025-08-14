@@ -14,7 +14,7 @@ var (
 	//go:embed rules.json
 	staticRecommendedRules []byte
 
-	// StaticRecommendedRules holds the recommended AppSec security rules (v1.14.2)
-	// Source: https://github.com/DataDog/appsec-event-rules/blob/1.14.2/build/recommended.json
+	// StaticRecommendedRules holds the recommended AppSec security rules (v1.15.1)
+	// Source: https://github.com/DataDog/appsec-event-rules/blob/1.15.1/build/recommended.json
 	StaticRecommendedRules = unsafe.String(&staticRecommendedRules[0], len(staticRecommendedRules))
 )
