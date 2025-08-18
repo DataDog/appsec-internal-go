@@ -98,7 +98,7 @@ jobs:
           branch: ${{ steps.create-branch.outputs.branch }}
           repo: ${{ github.repository }}
         env:
-          GITHUB_TOKEN: ${{ steps.generate-token-pr.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
       - name: Create Pull Request
         run: |-
           git fetch origin "${{ steps.create-branch.outputs.branch }}"
