@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:latest AS go-format
+FROM golang:1.26.1 AS go-format
 
 RUN apt update && apt install -y jq curl
 COPY writer/ /home/
